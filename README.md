@@ -5,3 +5,14 @@
 + 에디터 : Rider, Visual Studio
 + 제작기간 : 2022-02-26 ~ 2022-04-20
 + 개발규모 : 1인개발
+# 데모 동영상
+>Youtube
+
+# 제작 일지
+>Notion
+
+# 기술 설명서
+## Character
+## Item
+## Animation
+## Controller
