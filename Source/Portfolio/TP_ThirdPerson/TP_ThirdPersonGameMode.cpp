@@ -1,10 +1,10 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
-#include "PortfolioGameMode.h"
-#include "PortfolioCharacter.h"
+#include "TP_ThirdPersonGameMode.h"
+#include "TP_ThirdPersonCharacter.h"
 #include "UObject/ConstructorHelpers.h"
 
-APortfolioGameMode::APortfolioGameMode()
+ATP_ThirdPersonGameMode::ATP_ThirdPersonGameMode()
 {
 	// set default pawn class to our Blueprinted character
 	static ConstructorHelpers::FClassFinder<APawn> PlayerPawnBPClass(TEXT("/Game/ThirdPersonCPP/Blueprints/ThirdPersonCharacter"));
