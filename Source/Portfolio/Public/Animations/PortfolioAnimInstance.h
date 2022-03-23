@@ -16,7 +16,10 @@ public:
 	virtual void NativeUpdateAnimation(float DeltaSeconds) override;
 
 	UPortfolioAnimInstance();
-	
+
+	virtual void NativeBeginPlay() override;
+
+	UPROPERTY()
 	APortfolioCharacter* PortfolioCharacter;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AnimGraph")

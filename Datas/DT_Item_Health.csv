@@ -1,0 +1,3 @@
+---,Name,StaticMesh,Icon,Weight,UseTime,Value,Limit
+1,"NSLOCTEXT(""[F2129E77499B72AAF093E7BCE9FB6128]"", ""6F2AF68A4A9C08AE391C5FA0B8859AB2"", ""First Aid Pack"")","StaticMesh'/Game/Assets/Prop/Meshes/Health/M_Prop_Health_FirstAidPack.M_Prop_Health_FirstAidPack'","Texture2D'/Game/Assets/Icons/Health/icon_Heal_FirstAid.icon_Heal_FirstAid'","10","5.000000","75.000000","75.000000"
+2,"NSLOCTEXT(""[F2129E77499B72AAF093E7BCE9FB6128]"", ""15B22AC44FD0AE2438E03095A9034923"", ""MedKit"")","StaticMesh'/Game/Assets/Prop/Meshes/Health/M_Prop_Health_MedKit.M_Prop_Health_MedKit'","Texture2D'/Game/Assets/Icons/Health/icon_Heal_MedKit.icon_Heal_MedKit'","20","10.000000","100.000000","100.000000"

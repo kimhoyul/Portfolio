@@ -4,9 +4,10 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/PlayerController.h"
+#include "Items/Pickup/ItemPickupBase.h"
 #include "PortfolioPlayerController.generated.h"
 
-class APortfolioCharacter;
+class APortfolioPlayerState;
 
 UCLASS()
 class PORTFOLIO_API APortfolioPlayerController : public APlayerController
@@ -16,13 +17,52 @@ class PORTFOLIO_API APortfolioPlayerController : public APlayerController
 public:
 	APortfolioPlayerController();
 	
+	virtual void OnRep_PlayerState() override;
+	
 	virtual void BeginPlay() override;
-
-	/** 게임 플레이 관련 작업(이동, 무기 사용 등)이 현재 허용되는지 확인 */
+	
 	bool IsGameInputAllowed() const;
 	
-protected:
+	UFUNCTION()
+	void SetPickupItems(TArray<AItemPickupBase*> Items);
+
+	UFUNCTION()
+	void ExecBeginOverlap(AItemPickupBase* PickupObject, AActor* OtherActor);
+
+	UFUNCTION()
+	void ExecEndOverlap(AItemPickupBase* PickupObject);
 	
-	virtual void SetupInputComponent() override;
+	UFUNCTION()
+	void OutlineIte(AItemPickupBase* Item);
+	
+	UFUNCTION(BlueprintCallable)
+    void AutoPosition(EWeaponPosition& Position, bool& IsOnHand);
+
+	UFUNCTION(BlueprintCallable)
+	void AssignPosition(EWeaponPosition Assign, EWeaponPosition& Position, bool& IsOnHand);
+
+	UFUNCTION(BlueprintCallable)
+	void SpawnPickupItem(AItemBase* ItemBase, AItemPickupBase*& PickupItem);
+	
+	UPROPERTY()
+	AItemPickupBase* ReadyPickupItem;
+
+protected:
+	virtual void TickActor(float DeltaTime, ELevelTick TickType, FActorTickFunction& ThisTickFunction) override;
+	
+	UPROPERTY()
+	TArray<AItemPickupBase*> PickupItems;
+
+	UPROPERTY(Replicated)
+	TArray<AItemPickupBase*> ItemsInRange;
+
+	UPROPERTY()
+	APortfolioCharacter* PortfolioCharacterRef;
+
+	UPROPERTY()
+	APortfolioPlayerState* PortfolioPlayerStateRef;
+
+	UFUNCTION(Reliable, Server, WithValidation)
+	void ServerOnTest(AItemPickupBase* PickupObject);
 
 };

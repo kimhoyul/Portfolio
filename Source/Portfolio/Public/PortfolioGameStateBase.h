@@ -10,5 +10,7 @@ UCLASS()
 class PORTFOLIO_API APortfolioGameStateBase : public AGameStateBase
 {
 	GENERATED_BODY()
-	
+
+	UPROPERTY()
+	int32 LiveAmount;
 };

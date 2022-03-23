@@ -4,7 +4,6 @@
 #include "Player/Components/PortfolioTimeLineComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "PortfolioCharacter.h"
-#include "Kismet/KismetMathLibrary.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogPortfolioTimeLine, All, All);
 

@@ -2,6 +2,11 @@
 <project version="4">
   <component name="Encoding" addBOMForNewFiles="with BOM under Windows, with no BOM otherwise">
     <file url="file://$USER_HOME$/AppData/Local/JetBrains/Rider2021.3/log/SolutionBuilder/JetBrainsLog.ReSharperBuild_2022_03_06_12_59_49_2588.log" charset="x-windows-949" />
+    <file url="file://$USER_HOME$/AppData/Local/JetBrains/Rider2021.3/log/SolutionBuilder/JetBrainsLog.ReSharperBuild_2022_03_14_05_30_47_9849.log" charset="x-windows-949" />
+    <file url="file://$USER_HOME$/AppData/Local/JetBrains/Rider2021.3/log/SolutionBuilder/JetBrainsLog.ReSharperBuild_2022_03_14_05_34_46_6088.log" charset="x-windows-949" />
+    <file url="file://$USER_HOME$/AppData/Local/JetBrains/Rider2021.3/log/SolutionBuilder/JetBrainsLog.ReSharperBuild_2022_03_14_05_39_32_9756.log" charset="x-windows-949" />
+    <file url="file://$USER_HOME$/AppData/Local/JetBrains/Rider2021.3/log/SolutionBuilder/JetBrainsLog.ReSharperBuild_2022_03_14_05_51_25_5196.log" charset="x-windows-949" />
+    <file url="file://$PROJECT_DIR$/Source/Portfolio/Private/PortfolioGameMode.cpp" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/Source/Portfolio/Public/Player/Components/PlayerMovementComponent.h" charset="ISO-8859-1" />
   </component>
 </project>

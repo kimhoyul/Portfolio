@@ -28,13 +28,20 @@ UPortfolioAnimInstance::UPortfolioAnimInstance()
 	IsPlayingMontage = false;
 }
 
+void UPortfolioAnimInstance::NativeBeginPlay()
+{
+	Super::NativeBeginPlay();
+	PortfolioCharacter = Cast<APortfolioCharacter>(TryGetPawnOwner());
+	if (!PortfolioCharacter) NativeBeginPlay();
+}
+
 void UPortfolioAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 {
 	Super::NativeUpdateAnimation(DeltaSeconds);
-	PortfolioCharacter = Cast<APortfolioCharacter>(TryGetPawnOwner());
-	
+	if (!PortfolioCharacter) return;
 	//////////////////////////////////////////////////////////////////////////
 	// Speed & Direction
+
 	
 	Speed = PortfolioCharacter->GetVelocity().Size();
 	if (Speed > 0.0f)
@@ -68,16 +75,47 @@ void UPortfolioAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 	if (IsInAir || IsProne)
 	{
 		AimOffsetType = 0;
+	}
+	else 
+	{
+		if (IsCrouch)
+		{
+			if (IsHoldWeapon)
+			{
+				if (IsAim)
+				{
+					AimOffsetType = 6;
+				}
+				else
+				{
+					AimOffsetType = 4;
+				}
+			}
+			else
+			{
+				AimOffsetType = 2;
+			}
+		}
+		else
+		{
+			if (IsHoldWeapon)
+			{
+				if (IsAim)
+				{
+					AimOffsetType = 5;
+				}
+				else
+				{
+					AimOffsetType = 3;
+				}
+			}
+			else
+			{
+				AimOffsetType = 1;
+			}
+		}
+	}
 		
-	}
-	else if (IsCrouch)
-	{
-		IsHoldWeapon ? (IsAim ? AimOffsetType = 6 : AimOffsetType = 4) : AimOffsetType = 2;
-	}
-	else
-	{
-		IsHoldWeapon ? (IsAim ? AimOffsetType = 5 : AimOffsetType = 3) : AimOffsetType = 1;
-	}
 	
 	//////////////////////////////////////////////////////////////////////////
 	// Ground Character Pose
@@ -87,7 +125,7 @@ void UPortfolioAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 	IsAim = PortfolioCharacter->bWantsToAiming;
 	IsHoldWeapon = PortfolioCharacter->IsHoldWeapon;
 	//IsDead
-	//IsPlayingMontage
+	IsPlayingMontage = PortfolioCharacter->IsPlayingMontage;
 
 	//////////////////////////////////////////////////////////////////////////
 	// Air Character Pose

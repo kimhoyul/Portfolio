@@ -31,10 +31,12 @@ float UPlayerMovementComponent::GetMaxSpeed() const
 {
 	float MaxSpeed = Super::GetMaxSpeed();
 
+	if (!GetMovementData(UKismetStringLibrary::Conv_StringToName(GetRowName()))->Forward) return MaxSpeed;
+	
 	int16 speed = GetMovementData(UKismetStringLibrary::Conv_StringToName(GetRowName()))->Forward;
 	//UE_LOG(LogMovementComponent, Warning, TEXT("GetRowName = %s"), *GetRowName());
 	//UE_LOG(LogMovementComponent, Warning, TEXT("Speed = %d"), speed);
-	UE_LOG(LogMovementComponent, Warning, TEXT("Speed = %f"), PortfolioCharacter->GetInputAxisValue(FName("MoveForward")));
+	//UE_LOG(LogMovementComponent, Warning, TEXT("Speed = %f"), PortfolioCharacter->GetInputAxisValue(FName("MoveForward")));
 	
 	return MaxSpeed = speed;
 }

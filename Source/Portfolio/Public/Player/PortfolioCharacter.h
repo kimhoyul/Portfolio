@@ -3,9 +3,17 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "GameFramework/Character.h"
+#include "Datas/StructData.h"
 #include "Engine/DataTable.h"
+#include "GameFramework/Character.h"
+#include "UI/PortfolioCharacterWidget.h"
 #include "PortfolioCharacter.generated.h"
+
+class APortfolioPlayerState;
+class UPortfolioGameInstance;
+class AEquipmentsWeapon;
+class AItemPickupBase;
+class AItemBase;
 
 UCLASS(config=Game)
 class APortfolioCharacter : public ACharacter
@@ -15,18 +23,76 @@ class APortfolioCharacter : public ACharacter
 public:
 	APortfolioCharacter(const FObjectInitializer& ObjectInitializer);
 
+	virtual void OnRep_PlayerState() override;
+	
+	virtual void BeginPlay() override;
+
+	virtual float TakeDamage(float Damage, struct FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser) override;
+	
+	//////////////////////////////////////////////////////////////////////////
+	// SkeletalMesh
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SkeltalMesh")
+	USkeletalMeshComponent* SKMHair;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SkeltalMesh")
+	USkeletalMeshComponent* SKMUnderwearTop;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SkeltalMesh")
+	USkeletalMeshComponent* SKMUnderwearBottom;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SkeltalMesh")
+	USkeletalMeshComponent* SKMClothTop;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SkeltalMesh")
+	USkeletalMeshComponent* SKMClothBottom;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SkeltalMesh")
+	USkeletalMeshComponent* SKMWhole;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SkeltalMesh")
+	USkeletalMeshComponent* SKMShoes;
+
+	UPROPERTY(BlueprintReadWrite, Category = "Clothes")
+	UMaterialInstanceDynamic* SkinMatRef;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Clothes")
+	UDataTable* ClothesTable;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Clothes")
+	UTexture* NoneOpacityTexture;
+
+	UPROPERTY()
+	USkeletalMesh* SKMRef;
+
+	UPROPERTY()
+	UTexture* Mask;
+	
+	UFUNCTION(BlueprintCallable)
+	void ReplaceSkeletalMesh(EClothesType ClothesType, FName RowName);
+
+	FItemClothes* GetClothesData(FName RowName) const;
+	
 	/** get aim offsets */
 	UFUNCTION(BlueprintCallable, Category = "Game|Weapon")
 	FRotator GetAimOffsets() const;
 	
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera", meta = (AllowPrivateAccess = "true"))
 	class USpringArmComponent* CameraBoom;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera", meta = (AllowPrivateAccess = "true"))
 	class UCameraComponent* FollowCamera;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "TimeLine", meta = (AllowPrivateAccess = "true"))
 	class UPortfolioTimeLineComponent* TimeLine;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Stats", meta = (AllowPrivateAccess = "true"))
+	class UPlayerStatComponent* PlayerStatComponent;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "LineTrace", meta = (AllowPrivateAccess = "true"))
+	class ULineTraceComponent* LineTraceComponent;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "LineTrace", meta = (AllowPrivateAccess = "true"))
+	class UInventoryComponent* InventoryComponent;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "MouseSensitive")
 	float MouseSensitiveX;
@@ -34,32 +100,44 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "MouseSensitive")
 	float MouseSensitiveY;
 	
-	UPROPERTY(EditAnywhere, BlueprintReadOnly,  Category = "Move")
+	UPROPERTY(BlueprintReadOnly,  Category = "Move")
 	float WalkSpeed;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Move")
+	UPROPERTY(BlueprintReadWrite, Category = "Move")
 	bool WalkPressed;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Move")
+	UPROPERTY(BlueprintReadWrite, Category = "Move")
 	bool SprintPressed;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "CharacterPose")
 	bool IsHoldWeapon;
 
-	void MouseTurn(float AxisValue);
-	void MouseLookUp(float AxisValue);
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "CharacterPose")
+	bool bIsFiring;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "CharacterPose")
+	bool IsPlayingMontage;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "CharacterPose")
+	bool bIsReload;
+	
+	UPROPERTY(Transient)
+	float MoveForwardAxis;
+	
+	UPROPERTY(Transient)
+	float MoveRightAxis;
+	
 	//////////////////////////////////////////////////////////////////////////
 	// FreeLook
 	void FreeLookStart();
 	void FreeLookStop();
 	void FreeLookFloat(float Value);
 	void FreeLookReset();
-	/** current running state */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Transient, Replicated, Category = "Character Pose")
+	
+	UPROPERTY(BlueprintReadOnly, Transient, Replicated, Category = "CharacterPose")
 	bool UseFreeLock;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Transient, Replicated, Category = "CharacterPose")
+	UPROPERTY(BlueprintReadOnly, Transient, Replicated, Category = "CharacterPose")
 	float FreeLookYaw;
 
 	//////////////////////////////////////////////////////////////////////////
@@ -81,15 +159,30 @@ public:
 	void Moving(bool IsForward, float AxisValue);
 	void VelocitySmoothing();
 	bool LimitPitchAngle(float Axis);
-
+	void MouseTurn(float AxisValue);
+	void MouseLookUp(float AxisValue);
+	void OnStartAiming();
+	void OnStopAiming();
+	void OnToggleInInventory();
+	void Fire();
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "UI")
+	TSubclassOf<class UUserWidget> InventoryWidgetClass;
+	
 	//////////////////////////////////////////////////////////////////////////
 	// Pose
 	
-	UPROPERTY(Transient, Replicated)
+	UPROPERTY(BlueprintReadWrite, Transient, Replicated)
 	bool EnableMove;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Transient, Replicated, Category = "CharacterPose")
+	UPROPERTY(BlueprintReadOnly, Transient, Replicated, Category = "CharacterPose")
 	bool bWantsToAiming;
+
+	UFUNCTION()
+	void DIe();
+
+	UPROPERTY()
+	bool bIsDied;
 	
 	//////////////////////////////////////////////////////////////////////////
 	// Crouching
@@ -104,7 +197,7 @@ public:
 	void OnStopCrouching();
 
 	/** current running state */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Transient, Replicated, Category = "Character Pose")
+	UPROPERTY(BlueprintReadOnly, Transient, Replicated, Category = "Character Pose")
 	bool bWantsToCrouch;
 	
 	
@@ -120,7 +213,7 @@ public:
 	/** player toggled off Prone action */
 	void OnStopProne();
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Transient, Replicated, Category = "Character Pose")
+	UPROPERTY(BlueprintReadOnly, Transient, Replicated, Category = "Character Pose")
 	bool bWantsToProne;
 
 	
@@ -143,10 +236,67 @@ public:
 	void OnStopRunning();
 	
 	/** current running state */
-	UPROPERTY(BlueprintReadOnly, Transient, Replicated)
+	UPROPERTY(BlueprintReadOnly, Transient, Replicated, Category = "Character Pose")
 	bool bWantsToRun;
+
+	void HandleRunning();
 	
 protected:
+	
+	void InitSkeletalMesh();
+
+	//////////////////////////////////////////////////////////////////////////
+	// LineTrace
+	UFUNCTION(	)
+	void ItemLineTrace();
+
+	FTimerHandle LineTraceHandle;
+	
+	
+	//////////////////////////////////////////////////////////////////////////
+	// Stat
+	UFUNCTION(BlueprintPure)
+	float ReturnPlayerHunger();
+
+	UFUNCTION(BlueprintPure)
+	float ReturnPlayerThirst();
+
+	UFUNCTION(BlueprintPure)
+	float ReturnPlayerHealth();
+	
+	UFUNCTION(BlueprintPure)
+	float ReturnPlayerStamina();
+
+	FTimerHandle RunningTimeHandle;
+	
+	//////////////////////////////////////////////////////////////////////////
+	// ChangeItems
+	UFUNCTION(BlueprintCallable)
+	void UpdateWeaponDisplay(FName HoldSocket);
+	
+	UFUNCTION()
+	void OnUpdateWeaponDisplay(AEquipmentsWeapon* Weapon, EWeaponPosition Position, bool IsOnHand);
+
+	void UpdateEquipmentDisplay();
+	
+	UFUNCTION()
+	void OnUpdateEquipmentDisplay(AItemBase* Equipment, bool IsAdd);
+	
+	void UpdateClothesDisplay();
+	
+	UFUNCTION()
+	void OnUpdateClothesDisplay(AItemBase* Clothes, bool IsAdd);
+	
+	void Attach(AItemBase* Item, FName SocketName);
+
+	void ClearClothes();
+
+	UFUNCTION(BlueprintCallable, BlueprintPure)
+	void CalculateHoldGunSocket(FName& SocketName);
+
+	UFUNCTION()
+	void OnMontageEnd(UAnimMontage* Montage, bool Interrupted);
+	
 
 	//////////////////////////////////////////////////////////////////////////
 	// Replication
@@ -165,18 +315,44 @@ protected:
 
 	/** update FreeLook state */
 	UFUNCTION(Reliable, server, WithValidation)
-	void ServerSetFreeLook(bool FreeLook);
+	void ServerSetFreeLook(bool FreeLook); 
 
-	/** update FreeLook state */
+	/** update Aim state */
 	UFUNCTION(Reliable, server, WithValidation)
 	void ServerSetAimRotation(float Rotation);
+	
+	/** update LineTrace */
+	UFUNCTION(Reliable, server, WithValidation)
+	void ServerItemLineTrace(AItemPickupBase* PickupItem);
 
+	/** update Fire */
+	UFUNCTION(Reliable, server, WithValidation)
+	void ServerFire(APortfolioCharacter* Actor);
+
+	UFUNCTION(Reliable, NetMulticast, WithValidation)
+	void MulticastDIe();
+	
 	//////////////////////////////////////////////////////////////////////////
 	// ForceInline
 	
 	FORCEINLINE USpringArmComponent* GetCameraBoom() const { return CameraBoom; }
 	FORCEINLINE UCameraComponent* GetFollowCamera() const { return FollowCamera; }
 	FORCEINLINE UPortfolioTimeLineComponent* GetTimeLine() const { return TimeLine; }
+
+public:
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "GameFrameworkRef")
+	APortfolioPlayerState* PortfolioPlayerStateRef;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "GameFrameworkRef")
+	UPortfolioGameInstance* PortfolioGameInstanceRef;
+
+private:
+	UPROPERTY()
+	class UUserWidget* InventoryWidget;
+
 };
+
+
+
 
 

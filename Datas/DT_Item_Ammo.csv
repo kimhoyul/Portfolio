@@ -1,0 +1,3 @@
+---,Name,PickupMesh,PickupAmmo,Icon,Weight,ProbabilityPercent
+1,"NSLOCTEXT(""[C405CCB14BD1E40C2345A2BCC8300E14]"", ""64FB070549134B1582BE63B22B00E221"", ""5.56mm"")","StaticMesh'/Game/Assets/Prop/Meshes/Ammo/M_Prop_AmmoBox_556.M_Prop_AmmoBox_556'","30","Texture2D'/Game/Assets/Icons/Ammo/icon_ammo_556mm.icon_ammo_556mm'","1","80"
+2,"NSLOCTEXT(""[C405CCB14BD1E40C2345A2BCC8300E14]"", ""89F2F287496F893DE97C6AB7DBDAE594"", ""7.62mm"")","StaticMesh'/Game/Assets/Prop/Meshes/Ammo/M_Prop_AmmoBox_762.M_Prop_AmmoBox_762'","30","Texture2D'/Game/Assets/Icons/Ammo/icon_ammo_762mm.icon_ammo_762mm'","1","20"

@@ -1,19 +1,33 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "PortfolioCharacter.h"
+
+#include <vcruntime_startup.h>
+
+#include "PortfolioAnimInstance.h"
+#include "PortfolioGameInstance.h"
 #include "PortfolioPlayerController.h"
+#include "PortfolioPlayerState.h"
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/InputComponent.h"
 #include "Components/PlayerMovementComponent.h"
 #include "Components/PortfolioTimeLineComponent.h"
+#include "Datas/EnumData.h"
+#include "Datas/StructData.h"
 #include "Engine/TimelineTemplate.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/SpringArmComponent.h"
-#include "Kismet/GameplayStatics.h"
+#include "Items/Equipments/EquipmentsClothes.h"
+#include "Kismet/KismetMaterialLibrary.h"
 #include "Kismet/KismetMathLibrary.h"
-#include "Kismet/KismetStringLibrary.h"
 #include "Net/UnrealNetwork.h"
+#include "TimerManager.h"
+#include "Components/InventoryComponent.h"
+#include "Components/LineTraceComponent.h"
+#include "Items/Pickup/PickupHealth.h"
+#include "Player/Components/PlayerStatComponent.h"
+
 
 DEFINE_LOG_CATEGORY_STATIC(LogPortfolioCharacter, All, All);
 
@@ -22,6 +36,28 @@ APortfolioCharacter::APortfolioCharacter(const FObjectInitializer& ObjectInitial
 {
 	GetCapsuleComponent()->InitCapsuleSize(42.f, 96.0f);
 
+	SKMHair = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("SKMHair"));
+	SKMHair->SetupAttachment(GetMesh());
+	SKMHair->SetRelativeTransform(FTransform(FVector(1.0f, 1.0f, 1.0f)));
+
+	SKMUnderwearTop = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("SKMUnderwearTop"));
+	SKMUnderwearTop->SetupAttachment(GetMesh());
+
+	SKMUnderwearBottom = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("SKMUnderwearBottom"));
+	SKMUnderwearBottom->SetupAttachment(GetMesh());
+
+	SKMClothTop = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("SKMClothTop"));
+	SKMClothTop->SetupAttachment(GetMesh());
+
+	SKMClothBottom = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("SKMClothBottom"));
+	SKMClothBottom->SetupAttachment(GetMesh());
+
+	SKMWhole = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("SKMWhole"));
+	SKMWhole->SetupAttachment(GetMesh());
+
+	SKMShoes = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("SKMShoes"));
+	SKMShoes->SetupAttachment(GetMesh());
+	
 	bUseControllerRotationPitch = false;
 	bUseControllerRotationYaw = true;
 	bUseControllerRotationRoll = false;
@@ -41,6 +77,12 @@ APortfolioCharacter::APortfolioCharacter(const FObjectInitializer& ObjectInitial
 	FollowCamera->bUsePawnControlRotation = false;
 
 	TimeLine = CreateDefaultSubobject<UPortfolioTimeLineComponent>(TEXT("TimeLine"));
+
+	PlayerStatComponent = CreateDefaultSubobject<UPlayerStatComponent>("PlayerStatComponent");
+
+	LineTraceComponent = CreateDefaultSubobject<ULineTraceComponent>("LineTraceComponent");
+
+	InventoryComponent = CreateDefaultSubobject<UInventoryComponent>("InventoryComponent");
 	
 	MouseSensitiveX = 1.0f;
 	MouseSensitiveY = 1.0f;
@@ -52,10 +94,199 @@ APortfolioCharacter::APortfolioCharacter(const FObjectInitializer& ObjectInitial
 	bWantsToAiming = false;
 	EnableMove = true;
 	IsHoldWeapon = false;
+	bIsDied = false;
 	
 	NewHeight = 0.0f;
 	CurrentHeight = 90.0f;
 	OriginalHeight = 0.0f;
+}
+
+void APortfolioCharacter::InitSkeletalMesh()
+{
+	auto SKM = GetMesh()->SkeletalMesh->GetMaterials()[2];
+	auto MaterialInterface = SKM.MaterialInterface;
+	auto SlotName = SKM.MaterialSlotName;
+	SkinMatRef = UKismetMaterialLibrary::CreateDynamicMaterialInstance(GetOwner(), MaterialInterface, {},{});
+	GetMesh()->SetMaterialByName(SlotName, SkinMatRef);
+	
+	SKMUnderwearTop->SetMasterPoseComponent(GetMesh(), false);
+	SKMUnderwearBottom->SetMasterPoseComponent(GetMesh(), false);
+	SKMClothTop->SetMasterPoseComponent(GetMesh(), false);
+	SKMClothBottom->SetMasterPoseComponent(GetMesh(), false);
+	SKMWhole->SetMasterPoseComponent(GetMesh(), false);
+	SKMShoes->SetMasterPoseComponent(GetMesh(), false);
+
+	SKMHair->K2_AttachToComponent(GetMesh(), FName("head"), EAttachmentRule::KeepWorld, EAttachmentRule::KeepWorld, EAttachmentRule::KeepWorld, true);
+
+	ReplaceSkeletalMesh(EClothesType::ECT_ClothTop, "1");
+	ReplaceSkeletalMesh(EClothesType::ECT_ClothBottom, "4");
+}
+
+void APortfolioCharacter::ReplaceSkeletalMesh(EClothesType ClothesType, FName RowName)
+{
+	SKMRef= GetClothesData(RowName)->SkeletalMesh;
+	Mask = GetClothesData(RowName)->MaskTexture;
+
+	switch (ClothesType)
+	{
+	case  EClothesType::ECT_ClothTop :
+		{
+			SKMClothTop->SetSkeletalMesh(SKMRef, true);
+			SkinMatRef->SetTextureParameterValue("Mask Top", Mask);
+			if (SKMRef != nullptr)
+			{
+				SKMWhole->SetSkeletalMesh(nullptr, true);
+			}
+			break;
+		}
+	case  EClothesType::ECT_ClothBottom :
+		{
+			SKMClothBottom->SetSkeletalMesh(SKMRef, true);
+			SkinMatRef->SetTextureParameterValue("Mask Bottom", Mask);
+			if (SKMRef != nullptr)
+			{
+				SKMWhole->SetSkeletalMesh(nullptr, true);
+			}
+			break;
+		}
+	case  EClothesType::ECT_Whole :
+		{
+			SKMWhole->SetSkeletalMesh(SKMRef, true);
+			SkinMatRef->SetTextureParameterValue("Mask Top", Mask);
+			if (SKMRef != nullptr)
+			{
+				SKMClothTop->SetSkeletalMesh(nullptr, true);
+				SKMClothBottom->SetSkeletalMesh(nullptr, true);
+			}
+			break;
+		}
+	case  EClothesType::ECT_Shoes :
+		{
+			SKMShoes->SetSkeletalMesh(SKMRef, true);
+			if (IsValid(SKMRef))
+			{
+				SkinMatRef->SetTextureParameterValue("Mask Foot", Mask);
+				GetMesh()->SetRelativeLocation(FVector(0.0f, 0.0f, -97.0f));
+			}
+			else
+			{
+				SkinMatRef->SetTextureParameterValue("Mask Foot", NoneOpacityTexture);
+				GetMesh()->SetRelativeLocation(FVector(0.0f, 0.0f, -98.0f));
+			}
+			break;
+		}
+	}
+
+	if (IsValid(SKMWhole->SkeletalMesh))
+	{
+		SkinMatRef->SetTextureParameterValue("Mask Bottom", NoneOpacityTexture);
+	}
+	else
+	{
+		if (!IsValid(SKMClothTop->SkeletalMesh))
+		{
+			SKMClothTop->SetSkeletalMesh(GetClothesData("1")->SkeletalMesh, true);
+			SkinMatRef->SetTextureParameterValue("Mask Top", GetClothesData("1")->MaskTexture);
+		}
+
+		if (!IsValid(SKMClothBottom->SkeletalMesh))
+		{
+			SKMClothBottom->SetSkeletalMesh(GetClothesData("4")->SkeletalMesh, true);
+			SkinMatRef->SetTextureParameterValue("Mask Bottom", GetClothesData("4")->MaskTexture);
+		}
+	}
+}
+
+FItemClothes* APortfolioCharacter::GetClothesData(FName RowName) const
+{
+	return ClothesTable->FindRow<FItemClothes>(RowName, TEXT(""));
+}
+
+void APortfolioCharacter::OnRep_PlayerState()
+{
+	Super::OnRep_PlayerState();
+
+	PortfolioPlayerStateRef = Cast<APortfolioPlayerState>(GetPlayerState());
+
+	if (!PortfolioPlayerStateRef)
+	{
+		GEngine->AddOnScreenDebugMessage(-1, 500.0f, FColor::Yellow,FString::Printf(TEXT("APortfolioCharacter : PortfolioPlayerStateRef 생성 실패")));
+		OnRep_PlayerState();
+	}
+	// else
+	// {
+	// 	GEngine->AddOnScreenDebugMessage(-1, 500.0f, FColor::Yellow,FString::Printf(TEXT("APortfolioCharacter : PortfolioPlayerStateRef 생성 성공")));
+	// }
+}
+
+void APortfolioCharacter::BeginPlay()
+{
+	Super::BeginPlay();
+	
+	InitSkeletalMesh();
+
+	if(HasAuthority())
+	{
+		PortfolioPlayerStateRef = Cast<APortfolioPlayerState>(GetPlayerState());
+		if(!PortfolioPlayerStateRef)
+		{
+			PortfolioPlayerStateRef = Cast<APortfolioPlayerState>(GetPlayerState());
+		}
+	}
+	
+	PortfolioGameInstanceRef = GetWorld() != NULL ? Cast<UPortfolioGameInstance>(GetWorld()->GetGameInstance()) : NULL;
+	
+	if(PortfolioPlayerStateRef)
+	{
+		PortfolioPlayerStateRef->OnWeaponChanged.AddDynamic (this, &APortfolioCharacter::OnUpdateWeaponDisplay);
+		PortfolioPlayerStateRef->OnEquipmentsChanged.AddDynamic (this, &APortfolioCharacter::OnUpdateEquipmentDisplay);
+		PortfolioPlayerStateRef->OnClothesChanged.AddDynamic (this, &APortfolioCharacter::OnUpdateClothesDisplay);
+	}
+	
+	UPortfolioAnimInstance* PortfolioAnimInstanceRef = Cast<UPortfolioAnimInstance>(GetMesh()->GetAnimInstance());
+	PortfolioAnimInstanceRef->OnMontageEnded.AddDynamic(this, &APortfolioCharacter::OnMontageEnd);
+
+	GetWorld()->GetTimerManager().SetTimer(RunningTimeHandle, this, &APortfolioCharacter::HandleRunning, 0.5f, true);
+	GetWorld()->GetTimerManager().SetTimer(LineTraceHandle, this, &APortfolioCharacter::ItemLineTrace, 0.1f, true);
+}
+
+void APortfolioCharacter::HandleRunning()
+{
+	if (bWantsToRun && this->GetVelocity().Size())
+	{
+		if (GetLocalRole() == ROLE_Authority)
+		{
+			PlayerStatComponent->LowerStamina(10.0f);
+		}
+		if (PlayerStatComponent->GetStaminaRatio() <= 0.000f)
+		{
+			OnStopRunning();
+		}
+	}
+}
+
+void APortfolioCharacter::ItemLineTrace()
+{
+	FVector Start = FollowCamera->GetComponentLocation();
+	FVector End = Start +(FollowCamera->GetForwardVector() * 450.0f);
+	
+	FHitResult HitResult = LineTraceComponent->LineTraceSingle(Start, End);//, true);
+	if (AActor* Actor = HitResult.GetActor())
+	{
+		//GEngine->AddOnScreenDebugMessage(-1, 1.0f, FColor::Red, FString::Printf(TEXT("Hit Actor : %s"), *Actor->GetName()));
+		if (AItemPickupBase* PickupItem = Cast<AItemPickupBase>(Actor))
+		{
+			GEngine->AddOnScreenDebugMessage(-1, 1.0f, FColor::Red, FString::Printf(TEXT("Actor is a Pickup")));
+			ServerItemLineTrace(PickupItem);
+		}
+	}
+}
+
+void APortfolioCharacter::OnUpdateWeaponDisplay(AEquipmentsWeapon* Weapon, EWeaponPosition Position, bool IsOnHand)
+{
+	FName Sockname;
+	CalculateHoldGunSocket(Sockname);
+	UpdateWeaponDisplay(Sockname);
 }
 
 FRotator APortfolioCharacter::GetAimOffsets() const
@@ -81,6 +312,58 @@ void APortfolioCharacter::SetupPlayerInputComponent(class UInputComponent* Playe
 	PlayerInputComponent->BindAction("Jump/Vault", IE_Pressed, this, &APortfolioCharacter::OnJump);
 	PlayerInputComponent->BindAction("Run", IE_Pressed, this, &APortfolioCharacter::OnStartRunning);
 	PlayerInputComponent->BindAction("Run", IE_Released, this, &APortfolioCharacter::OnStopRunning);
+	PlayerInputComponent->BindAction("Aiming", IE_Pressed, this, &APortfolioCharacter::OnStartAiming);
+	PlayerInputComponent->BindAction("Aiming", IE_Released, this, &APortfolioCharacter::OnStopAiming);
+	PlayerInputComponent->BindAction("Inventory", IE_Pressed, this, &APortfolioCharacter::OnToggleInInventory);
+	PlayerInputComponent->BindAction("Fire", IE_Pressed, this, &APortfolioCharacter::Fire);
+}
+
+void APortfolioCharacter::OnToggleInInventory()
+{
+	GEngine->AddOnScreenDebugMessage(-1, 500.0f, FColor::Yellow,FString::Printf(TEXT("인입")));
+}
+
+void APortfolioCharacter::Fire()
+{
+	if (bIsDied) return;
+	FVector Start = FollowCamera->GetComponentLocation() + (FollowCamera->GetForwardVector() * 300.0f);
+	FVector End = FollowCamera->GetComponentLocation() +(FollowCamera->GetForwardVector() * 100000.0f);
+	
+	FHitResult HitResult = LineTraceComponent->LineTraceSingleFire(Start, End, true);
+	if (AActor* Actor = HitResult.GetActor())
+	{
+		if (APortfolioCharacter* Player = Cast<APortfolioCharacter>(Actor))
+		{
+			//GEngine->AddOnScreenDebugMessage(-1, 1.0f, FColor::Red, FString::Printf(TEXT("Actor is a Pickup")));
+			ServerFire(Player);
+		}
+	}
+}
+
+float APortfolioCharacter::TakeDamage(float Damage, FDamageEvent const& DamageEvent, AController* EventInstigator,
+	AActor* DamageCauser)
+{
+	if (GetLocalRole() < ROLE_Authority || PlayerStatComponent->GetHealthRatio() <= 0.0f) return 0.0f;
+	const float ActualDamage = Super::TakeDamage(Damage, DamageEvent, EventInstigator, DamageCauser);
+
+	if(ActualDamage > 0.0f)
+	{
+		PlayerStatComponent->LowerHealth(ActualDamage);
+		if (PlayerStatComponent->GetHealthRatio() <= 0.0f)
+		{
+			GEngine->AddOnScreenDebugMessage(-1, 1.0f, FColor::Red, FString::Printf(TEXT("Actor is a Died")));
+			DIe();
+		}
+	}
+	return ActualDamage;
+}
+
+void APortfolioCharacter::DIe()
+{
+	if (GetLocalRole() == ROLE_Authority)
+	{
+		MulticastDIe();
+	}
 }
 
 void APortfolioCharacter::MouseTurn(float AxisValue)
@@ -96,16 +379,55 @@ void APortfolioCharacter::MouseLookUp(float AxisValue)
 	AddControllerPitchInput(AxisValue);
 }
 
+//////////////////////////////////////////////////////////////////////////
+// Aiming
+void APortfolioCharacter::OnStartAiming()
+{
+	if (IsHoldWeapon)
+	{
+		bWantsToAiming = true;
+		FName SoketName;
+		CalculateHoldGunSocket(SoketName);
+		UpdateWeaponDisplay(SoketName);
+	}
+}
+
+void APortfolioCharacter::OnStopAiming()
+{
+	bWantsToAiming = false;
+	FName SoketName;
+	CalculateHoldGunSocket(SoketName);
+	UpdateWeaponDisplay(SoketName);
+}
+
+
 void APortfolioCharacter::MoveForward(float AxisValue)
 {
+	if (MoveForwardAxis != AxisValue)
+	{
+		MoveForwardAxis = AxisValue;
+		UpdateCameraHeight();
+		FName SocketName;
+		CalculateHoldGunSocket(SocketName);
+		UpdateWeaponDisplay(SocketName);
+	}
 	if (EnableMove)
 	{
+		
 		Moving(true ,AxisValue);	
 	}
 }
 
 void APortfolioCharacter::MoveRight(float AxisValue)
 {
+	if (MoveRightAxis != AxisValue)
+	{
+		MoveRightAxis = AxisValue;
+		UpdateCameraHeight();
+		FName SocketName;
+		CalculateHoldGunSocket(SocketName);
+		UpdateWeaponDisplay(SocketName);
+	}
 	if (EnableMove)
 	{
 		Moving(false ,AxisValue);
@@ -222,6 +544,7 @@ void APortfolioCharacter::VelocitySmoothing()
 // FreeLook
 void APortfolioCharacter::FreeLookStart()
 {
+	UE_LOG(LogPortfolioCharacter, Warning, TEXT("누름"));
 	UseFreeLock = false;
 	bUseControllerRotationYaw = UseFreeLock;
 	if (GetLocalRole() < ROLE_Authority)
@@ -232,7 +555,7 @@ void APortfolioCharacter::FreeLookStart()
 
 void APortfolioCharacter::FreeLookStop()
 {
-	if(!TimeLine) return ;
+	UE_LOG(LogPortfolioCharacter, Warning, TEXT("땜"));
 	TimeLine->FreeLookTimeLineStart();
 }
 
@@ -291,6 +614,7 @@ void APortfolioCharacter::OnStartCrouching()
 	{
 		if (bWantsToProne)
 		{
+			
 			SetCrouching(true, true);
 		}
 		else if (bWantsToCrouch)
@@ -328,6 +652,9 @@ void APortfolioCharacter::SetCrouching(bool bNewCrouching, bool bIsProne)
 	
 	LimitPitchAngle(0);
 	UpdateCameraHeight();
+	FName SocketName;
+	CalculateHoldGunSocket(SocketName);
+	UpdateWeaponDisplay(SocketName);
 	
 	if (GetLocalRole() < ROLE_Authority)
 	{
@@ -399,6 +726,9 @@ void APortfolioCharacter::SetProne(bool bNewProne, bool bIsProne, bool bIsCrouch
 	
 	LimitPitchAngle(0);
 	UpdateCameraHeight();
+	FName SocketName;
+	CalculateHoldGunSocket(SocketName);
+	UpdateWeaponDisplay(SocketName);
 	
 	if (GetLocalRole() < ROLE_Authority)
 	{
@@ -423,9 +753,14 @@ void APortfolioCharacter::OnJump()
 		}
 		else
 		{
+			if (PlayerStatComponent->GetStaminaRatio() <= 0.15f)
+			{
+				return;
+			}
 			APortfolioPlayerController* MyPC = Cast<APortfolioPlayerController>(Controller);
 			if (MyPC && MyPC->IsGameInputAllowed())
 			{
+				PlayerStatComponent->LowerStamina(15.0f);
 				Jump();
 			}
 		}
@@ -438,15 +773,25 @@ void APortfolioCharacter::OnJump()
 
 void APortfolioCharacter::OnStartRunning()
 {
-	APortfolioPlayerController* MyPC = Cast<APortfolioPlayerController>(Controller);
-	if (MyPC && MyPC->IsGameInputAllowed())
+	//GEngine->AddOnScreenDebugMessage(-1, 10.0f, FColor::Red, FString::Printf(TEXT("%f"), PlayerStatComponent->GetStaminaRatio()));
+	if (PlayerStatComponent->GetStaminaRatio() > 0.1f)
 	{
-		SetRunning(true);
+		PlayerStatComponent->ControlRunningTimer(true);
+		APortfolioPlayerController* MyPC = Cast<APortfolioPlayerController>(Controller);
+		if (MyPC && MyPC->IsGameInputAllowed())
+		{
+			SetRunning(true);
+		}
+	}
+	else if (PlayerStatComponent->GetStaminaRatio() <= 0.0f)
+	{
+		PlayerStatComponent->ControlRunningTimer(false);
 	}
 }
 
 void APortfolioCharacter::OnStopRunning()
 {
+	PlayerStatComponent->ControlRunningTimer(false);
 	SetRunning(false);
 }
 
@@ -459,9 +804,222 @@ void APortfolioCharacter::SetRunning(bool bNewRunning)
 		ServerSetRunning(bNewRunning);
 	}
 }
+
+void APortfolioCharacter::UpdateWeaponDisplay(FName HoldSocket)
+{
+	bool IsEquipBackpack = false;
+	//////////////////////////////////////////////////////////////////////////
+	// Update the handheld weapon display
+	if (HoldSocket != "None")
+	{
+		if (IsValid(PortfolioPlayerStateRef->GetHoldGun()))
+		{
+			Attach(PortfolioPlayerStateRef->GetHoldGun(), HoldSocket);
+		}
+	}
+
+	//////////////////////////////////////////////////////////////////////////
+	// Update back weapon display
+	for (AItemBase* ArrayElement : PortfolioPlayerStateRef->GetEquipments())
+	{
+		if (ArrayElement->ItemType == EItemType::EIT_Backpack)
+		{
+			IsEquipBackpack = true;
+		}
+	}
+	
+	if (IsValid(PortfolioPlayerStateRef->GetWeapon1()))
+	{
+		AEquipmentsWeapon* Item = PortfolioPlayerStateRef->GetWeapon1();
+		if (IsEquipBackpack)
+		{
+			Attach(Item, PortfolioGameInstanceRef->BackLeftBName);
+		}
+		else
+		{
+			Attach(Item, PortfolioGameInstanceRef->BackLeftNName);
+		}
+	}
+
+	if (IsValid(PortfolioPlayerStateRef->GetWeapon2()))
+	{
+		AEquipmentsWeapon* Item = PortfolioPlayerStateRef->GetWeapon2();
+		if (IsEquipBackpack)
+		{
+			Attach(Item, PortfolioGameInstanceRef->BackRightBName);
+		}
+		else
+		{
+			Attach(Item, PortfolioGameInstanceRef->BackRightNName);
+		}
+	}
+}
+
+void APortfolioCharacter::OnUpdateEquipmentDisplay(AItemBase* Equipment, bool IsAdd)
+{
+	UpdateEquipmentDisplay();
+	UpdateWeaponDisplay("None");
+}
+
+void APortfolioCharacter::UpdateEquipmentDisplay()
+{
+	AItemBase* Item;
+	bool HasHelmet = false; 
+	for (AItemBase* ArrayElement : PortfolioPlayerStateRef->GetEquipments())
+	{
+		Item = ArrayElement;
+		switch (Item->ItemType)
+		{
+		case EItemType::EIT_Helmet :
+			{
+				Attach(Item, PortfolioGameInstanceRef->HelmetName);
+				HasHelmet = true;
+				break;
+			}
+		case EItemType::EIT_Vest :
+			{
+				Attach(Item, PortfolioGameInstanceRef->VestName);
+				break;
+			}
+		case EItemType::EIT_Backpack :
+			{
+				Attach(Item, PortfolioGameInstanceRef->BackpackName);
+				break;
+			}
+		}
+	}
+
+	if (HasHelmet)
+	{
+		SKMHair->SetVisibility(false, false);
+	}
+	else
+	{
+		SKMHair->SetVisibility(true, false);
+	}
+}
+
+void APortfolioCharacter::OnUpdateClothesDisplay(AItemBase* Clothes, bool IsAdd)
+{
+	UpdateClothesDisplay();
+}
+
+void APortfolioCharacter::UpdateClothesDisplay()
+{
+	ClearClothes();
+	for (AItemBase* ArrayElement : PortfolioPlayerStateRef->GetClothes())
+	{
+		AEquipmentsClothes* EquipmentsClothes = Cast<AEquipmentsClothes>(ArrayElement);
+		ReplaceSkeletalMesh(EquipmentsClothes->ClothesType, EquipmentsClothes->ID);
+	}
+}
+
+void APortfolioCharacter::Attach(AItemBase* Item, FName SocketName)
+{
+	FTransform SocketTransform = GetMesh()->GetSocketTransform(SocketName, RTS_World);
+	Item->SetActorTransform(SocketTransform);
+	Item->K2_AttachToComponent(GetMesh(), SocketName, EAttachmentRule::SnapToTarget, EAttachmentRule::KeepWorld, EAttachmentRule::KeepRelative, true);
+}
+
+void APortfolioCharacter::ClearClothes()
+{
+	ReplaceSkeletalMesh(EClothesType::ECT_ClothTop, "1");
+	ReplaceSkeletalMesh(EClothesType::ECT_ClothBottom, "4");
+}
+
+void APortfolioCharacter::CalculateHoldGunSocket(FName& SocketName)
+{
+	FName GunSocket;
+
+	//////////////////////////////////////////////////////////////////////////
+	// Prone Gun Socket
+	if (bWantsToProne)
+	{
+		if (MoveForwardAxis == 0.0f && MoveRightAxis == 0)
+		{
+			GunSocket = PortfolioGameInstanceRef->GunProneIdleName;
+		}
+		else 
+		{
+			if (MoveRightAxis == 0)
+			{
+				GunSocket = PortfolioGameInstanceRef->GunProneFBName;
+			}
+			else
+			{
+				GunSocket = PortfolioGameInstanceRef->GunProneOtherName;
+			}
+		}
+	}
+	else
+	{
+		//////////////////////////////////////////////////////////////////////////
+		// Crouch Gun Socket
+		if (bWantsToCrouch && !bWantsToAiming)
+		{
+			GunSocket = PortfolioGameInstanceRef->GunCrouchName;
+		}
+		else
+		{
+			//////////////////////////////////////////////////////////////////////////
+			// Aim or Firing Gun Socket
+			if(bWantsToAiming || bIsFiring)
+			{
+				GunSocket = PortfolioGameInstanceRef->GunAimName;
+			}
+			else
+			{
+				//////////////////////////////////////////////////////////////////////////
+				// Reload Gun Socket
+				if(bIsReload)
+				{
+					GunSocket = PortfolioGameInstanceRef->GunReloadName;
+				}
+				//////////////////////////////////////////////////////////////////////////
+				// Stand, Jump, Transitional, Equip, UnEquip, Death
+				else
+				{
+					GunSocket = PortfolioGameInstanceRef->GunStandName;
+				}
+			}
+		}
+	}
+
+	SocketName = GunSocket;
+	//GEngine->AddOnScreenDebugMessage(-1, 10.0f, FColor::Red, FString::Printf(TEXT("%s"), *FText::FromName(SocketName).ToString()));
+}
+
+void APortfolioCharacter::OnMontageEnd(UAnimMontage* Montage, bool Interrupted)
+{
+	if (!IsValid(GetCurrentMontage()))
+	{
+		UPortfolioAnimInstance* PortfolioAnimInstanceRef = Cast<UPortfolioAnimInstance>(GetMesh()->GetAnimInstance());
+		PortfolioAnimInstanceRef->IsPlayingMontage = false;
+	}
+}
+
+float APortfolioCharacter::ReturnPlayerHunger()
+{
+	return PlayerStatComponent->GetHungerRatio();
+}
+
+float APortfolioCharacter::ReturnPlayerThirst()
+{
+	return PlayerStatComponent->GetThirstRatio();
+}
+
+float APortfolioCharacter::ReturnPlayerHealth()
+{
+	return PlayerStatComponent->GetHealthRatio();
+}
+
+float APortfolioCharacter::ReturnPlayerStamina()
+{
+	return PlayerStatComponent->GetStaminaRatio();
+}
+
 //////////////////////////////////////////////////////////////////////////
 // Replication
-
 void APortfolioCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
@@ -522,6 +1080,49 @@ void APortfolioCharacter::ServerSetAimRotation_Implementation(float Rotation)
 }
 
 bool APortfolioCharacter::ServerSetAimRotation_Validate(float Rotation)
+{
+	return true;
+}
+
+void APortfolioCharacter::ServerItemLineTrace_Implementation(AItemPickupBase* PickupItem)
+{
+	if (APickupHealth* Pickup_Item = Cast<APickupHealth>(PickupItem))
+	{
+		Pickup_Item->UseItem(this, Pickup_Item->ID);
+	}
+}
+
+bool APortfolioCharacter::ServerItemLineTrace_Validate(AItemPickupBase* PickupItem)
+{
+	return true;
+}
+
+
+void APortfolioCharacter::ServerFire_Implementation(APortfolioCharacter* Actor)
+{
+	if (APortfolioCharacter* Player = Cast<APortfolioCharacter>(Actor))
+	{
+		float TestDamage = 20.0f;
+		Player->TakeDamage(TestDamage,  FDamageEvent(), GetController(), this);
+		//GEngine->AddOnScreenDebugMessage(-1, 500.0f, FColor::Yellow,FString::Printf(TEXT("Fire!! : [%s]"), *Player->GetName()));
+		//Player->PlayerStatComponent->LowerHealth(10.0f);
+	}
+}
+
+bool APortfolioCharacter::ServerFire_Validate(APortfolioCharacter* Player)
+{
+	return true;
+}
+
+void APortfolioCharacter::MulticastDIe_Implementation()
+{
+	this->bIsDied = true;
+	this->GetCharacterMovement()->DisableMovement();
+	this->GetMesh()->SetCollisionEnabled(ECollisionEnabled::PhysicsOnly);
+	this->GetMesh()->SetAllBodiesSimulatePhysics(true);
+}
+
+bool APortfolioCharacter::MulticastDIe_Validate()
 {
 	return true;
 }
