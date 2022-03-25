@@ -21,6 +21,9 @@ public:
 
 	FItemBoost* Datas;
 
+	UPROPERTY(BlueprintReadOnly)
+	FItemBoost DatasRef;
+
 	int32 SingleWeight;
 	
 private:

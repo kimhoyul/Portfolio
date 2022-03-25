@@ -1,6 +1,9 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 #include "Items/Pickup/ItemPickupBase.h"
+
+#include "PortfolioCharacter.h"
+#include "Components/InventoryComponent.h"
 #include "Kismet/KismetSystemLibrary.h"
 #include "Net/UnrealNetwork.h"
 
@@ -36,14 +39,14 @@ void AItemPickupBase::BeginPlay()
 	Super::BeginPlay();
 	
 	FVector ActorLocation = GetActorLocation();
-	float ActorLocationZ = ActorLocation.Z * -1000.0f;
+	float ActorLocationZ = ActorLocation.Z * 10.0f;
 	TArray<TEnumAsByte<EObjectTypeQuery>> ObjectTypes; // 히트 가능한 오브젝트 유형들.
 	TEnumAsByte<EObjectTypeQuery> Land = UEngineTypes::ConvertToObjectType(ECollisionChannel::ECC_GameTraceChannel1);
 	ObjectTypes.Add(Land);
 	FHitResult Outhit;
 	UKismetSystemLibrary::LineTraceSingleForObjects(this, ActorLocation, FVector(ActorLocation.X, ActorLocation.Y, ActorLocationZ),
 	                                                ObjectTypes, false, {},
-	                                                EDrawDebugTrace::None, Outhit, false, FLinearColor::Red,
+	                                                EDrawDebugTrace::ForDuration, Outhit, false, FLinearColor::Red,
 	                                                FLinearColor::Green, 500.0f);
 	
 	SetActorLocation(Outhit.Location, false, nullptr, ETeleportType::None);
@@ -60,11 +63,6 @@ void AItemPickupBase::EndPlay(const EEndPlayReason::Type EndPlayReason)
 	FOnOverlepBox.Unbind();
 }
 
-void AItemPickupBase::PostInitializeComponents()
-{
-	Super::PostInitializeComponents();
-}
-
 void AItemPickupBase::InitPickup(EItemType ItemTypeRef, FText NameRef, FText UIPrefixRef, UStaticMesh* StaticMeshRef)
 {
 	Init(ItemTypeRef, NameRef);
@@ -76,40 +74,45 @@ void AItemPickupBase::InitPickup(EItemType ItemTypeRef, FText NameRef, FText UIP
 void AItemPickupBase::OnBoxBeginOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor,
  	UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
-	if(OtherActor)
+	if (GetLocalRole() == ROLE_Authority)
 	{
-		auto Object = Cast<AItemPickupBase>(OtherActor);
-		OnOverlap(Object);
-	}
-	
-	if (FOnOverlepBox.IsBound())
-	{
-		FOnOverlepBox.Execute(this, OtherActor);
+		if(OtherActor)
+		{
+			if (FOnOverlepBox.IsBound())
+			{
+				FOnOverlepBox.Execute(this, OtherActor);
+			}
+		
+			if(OtherActor)
+			{
+				if (APortfolioCharacter* Player = Cast<APortfolioCharacter>(OtherActor))
+				{
+					Player->InventoryComponent->AddPickupItems(this);
+				}
+			}
+			EnabledOutLine(true);
+		}
 	}
 }
-
 void AItemPickupBase::OnOverlapEnd(UPrimitiveComponent* OverlappedComp, AActor* OtherActor,
 	UPrimitiveComponent* OtherComp, int32 OtherBodyIndex)
 {
-	if (FEndOverlapBox.IsBound())
+	if (GetLocalRole() == ROLE_Authority)
 	{
-		FEndOverlapBox.Execute(this);
+		if (FEndOverlapBox.IsBound())
+		{
+			FEndOverlapBox.Execute(this);
+		}
+		
+		if(OtherActor)
+		{
+			if (APortfolioCharacter* Player = Cast<APortfolioCharacter>(OtherActor))
+			{
+				Player->InventoryComponent->SubPickupItems(this);
+			}
+		}
+		EnabledOutLine(false);
 	}
-}
-
-void AItemPickupBase::OnOverlap(AItemPickupBase* Pickupobj)
-{
-	UE_LOG(LogItemPickupBase, Warning, TEXT("Active"));
-	//EnabledOutLine(true);
-	MulticastEnabledOutLine(true);
-}
-
-
-void AItemPickupBase::EndOverlap(AItemPickupBase* Pickupobj)
-{
-	UE_LOG(LogItemPickupBase, Warning, TEXT("Inactive"));
-	//EnabledOutLine(false);
-	MulticastEnabledOutLine(false);
 }
 
 void AItemPickupBase::EnabledOutLine(bool bEnabled)

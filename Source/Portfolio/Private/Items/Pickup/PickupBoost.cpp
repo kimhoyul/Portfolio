@@ -10,13 +10,17 @@ APickupBoost::APickupBoost()
 	check(DT_Item_Boost.Succeeded());
 	ItemBoostTable = DT_Item_Boost.Object;
 	check(ItemBoostTable->GetRowMap().Num() > 0);
-
-	bReplicates = true;
 }
 
 void APickupBoost::BeginPlay()
 {
 	Super::BeginPlay();
+
+	if (GetLocalRole() == ROLE_Authority)
+	{
+		SetReplicates(true);
+	}
+	
 	Datas = ItemBoostTable->FindRow<FItemBoost>(ID,TEXT(""));
 	if (Datas)
 	{
@@ -24,7 +28,8 @@ void APickupBoost::BeginPlay()
 		FText PICKUP = FText::FromString(FString("PICK UP ")); 
 		InitPickup(EItemType::EIT_Boost, Datas->Name, PICKUP, Datas->StaticMesh);
 	}
-	
+
+	DatasRef = *Datas;
 }
 
 void APickupBoost::GetWeight(int32& Weight)

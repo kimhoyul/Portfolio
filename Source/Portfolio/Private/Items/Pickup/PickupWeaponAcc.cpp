@@ -12,21 +12,17 @@ APickupWeaponAcc::APickupWeaponAcc()
 	check(DT_Item_WeaponAcc.Succeeded());
 	ItemWeaponAccTable = DT_Item_WeaponAcc.Object;
 	check(ItemWeaponAccTable->GetRowMap().Num() > 0);
-
-	bReplicates = true;
-}
-
-void APickupWeaponAcc::OnConstruction(const FTransform& Transform)
-{
-	Super::OnConstruction(Transform);
-
-	
 }
 
 void APickupWeaponAcc::BeginPlay()
 {
 	Super::BeginPlay();
 
+	if (GetLocalRole() == ROLE_Authority)
+	{
+		SetReplicates(true);
+	}
+	
 	if (AccType != EWeaponAccType::EWAT_Sight)
 	{
 		FVector Origin;
@@ -44,6 +40,8 @@ void APickupWeaponAcc::BeginPlay()
 		FText PICKUP = FText::FromString(FString("PICK UP ")); 
 		InitPickup(EItemType::EIT_Accesories, Datas->Name, PICKUP, Datas->StaticMesh);
 
+		DatasRef = *Datas;
+		
 		switch (AccType)
 		{
 		case  EWeaponAccType::EWAT_Sight :

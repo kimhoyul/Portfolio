@@ -112,7 +112,7 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void RemoveClothes(AItemBase* EquipmentsRef, bool& Removed);
 
-	void RemoveItem(AItemBase* ItemRef, bool& Removed);
+	
 	
 private:
 	UPROPERTY()
@@ -146,4 +146,8 @@ private:
 public: 
 	UPROPERTY()
 	TArray<AItemPickupBase*> ItemsInRange;
+
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	void ServerAddEquipment(AItemBase* EquipmentsRef);
 };

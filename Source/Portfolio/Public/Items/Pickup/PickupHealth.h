@@ -23,6 +23,9 @@ public:
 	
 	FItemHealth* Datas;
 
+	UPROPERTY(BlueprintReadOnly)
+	FItemHealth DatasRef;
+	
 	int32 SingleWeight;
 
 	
@@ -30,4 +33,5 @@ private:
 	UPROPERTY()
 	UDataTable* ItemHealthTable;
 
+	
 };

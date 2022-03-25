@@ -13,13 +13,15 @@ class PORTFOLIO_API APickupClothes : public AItemPickupBase
 	GENERATED_BODY()
 
 	APickupClothes();
-	
-	virtual void OnConstruction(const FTransform& Transform) override;
 
 	virtual void BeginPlay() override;
 	
 public:
 	FItemClothes* Datas;
+
+	UPROPERTY(BlueprintReadOnly)
+	FItemClothes DatasRef;
+	
 	EClothesType ClothesType;
 	
 private:

@@ -15,7 +15,11 @@ void AItemBase::BeginPlay()
 	PortfolioPlayerController = Cast<APortfolioPlayerController>(PortfolioCharacter->GetController());
 	if (!PortfolioPlayerController) return;
 
-	bReplicates = true;
+	if (GetLocalRole() == ROLE_Authority)
+	{
+		SetReplicates(true);
+	}
+	
 }
 
 void AItemBase::Init(EItemType ItemTypeRef, FText NameRef)

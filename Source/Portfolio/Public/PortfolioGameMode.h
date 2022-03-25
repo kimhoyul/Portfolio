@@ -5,7 +5,6 @@
 #include "CoreMinimal.h"
 #include "Datas/StructData.h"
 #include "GameFramework/GameModeBase.h"
-#include "SpawnTest.h"
 #include "PortfolioGameMode.generated.h"
 
 class AItemPickupBase;
@@ -23,9 +22,8 @@ public:
 
 	virtual void BeginPlay() override;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "GameFramework")
-	APortfolioPlayerController* PlayerController;
-
+	void Respawn(APortfolioPlayerController* PC);
+	
 	UFUNCTION(Category = "Generat Items")
 	void GenerateItems(TArray<AItemPickupBase*>& Items);
 
@@ -40,10 +38,6 @@ public:
 
 	UFUNCTION(Category = "Generat Items")
 	void RandomLocation(TArray<FTransform> Available, FTransform& Location);
-
-public:
-	UPROPERTY(EditDefaultsOnly)
-	TSubclassOf<ASpawnTest> SpawnClass;
 	
 private:
 
@@ -102,8 +96,12 @@ private:
 
 	FString GetEItemTypeAsString(EItemType EnumValue);
 
-	UFUNCTION()
-	void SpawnTest();
+protected:
+	TArray<class ASpawnPoint*> SpawnPoints;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "GameFramework")
+	APortfolioPlayerController* PC;
+	
 };
 
 

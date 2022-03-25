@@ -12,22 +12,17 @@ APickupClothes::APickupClothes()
 	check(DT_Item_Clothes.Succeeded());
 	ItemClothesTable = DT_Item_Clothes.Object;
 	check(ItemClothesTable->GetRowMap().Num() > 0);
-
-	bReplicates = true;
-}
-
-void APickupClothes::OnConstruction(const FTransform& Transform)
-{
-	Super::OnConstruction(Transform);
-
-	
-
 }
 
 void APickupClothes::BeginPlay()
 {
 	Super::BeginPlay();
 
+	if (GetLocalRole() == ROLE_Authority)
+	{
+		SetReplicates(true);
+	}
+	
 	FVector Origin;
 	FVector StaticMeshBound;
 	float SphereRadius;
@@ -42,7 +37,8 @@ void APickupClothes::BeginPlay()
 		FText EQUIP = FText::FromString(FString("EQUIP ")); 
 		InitPickup(EItemType::EIT_Clothes, Datas->Name, EQUIP, Datas->StaticMesh);
 
-	
+		DatasRef = *Datas;
+		
 		if (ClothesType != EClothesType::ECT_Shoes)
 		{		
 			StaticMesh->SetWorldRotation(FRotator(0.0f, 0.0f, -90.0f));

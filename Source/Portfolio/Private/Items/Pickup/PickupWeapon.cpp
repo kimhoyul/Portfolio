@@ -13,13 +13,16 @@ APickupWeapon::APickupWeapon()
 	check(DT_Item_Weapon.Succeeded());
 	ItemWeaponTable = DT_Item_Weapon.Object;
 	check(ItemWeaponTable->GetRowMap().Num() > 0);
-
-	bReplicates = true;
 }
 
 void APickupWeapon::BeginPlay()
 {
 	Super::BeginPlay();
+
+	if (GetLocalRole() == ROLE_Authority)
+	{
+		SetReplicates(true);
+	}
 
 	if(ID != "None")
 	{
@@ -27,5 +30,6 @@ void APickupWeapon::BeginPlay()
 		FText EQUIP = FText::FromString(FString("EQUIP "));
 		InitPickup(EItemType::EIT_Weapon, Datas->Name, EQUIP, Datas->StaticMesh);
 	}
+	DatasRef = *Datas;;
 }
 

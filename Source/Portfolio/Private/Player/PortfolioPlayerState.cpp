@@ -57,9 +57,27 @@ void APortfolioPlayerState::SetEnergyPoint(float Value)
 
 void APortfolioPlayerState::AddEquipment(AItemBase* EquipmentsRef)
 {
-	Equipments.Add(EquipmentsRef);
-	OnEquipmentsChanged.Broadcast(EquipmentsRef, true);
+	if (GetLocalRole() < ROLE_Authority)
+	{
+		ServerAddEquipment(EquipmentsRef);
+	}
+	else
+	{
+		Equipments.Add(EquipmentsRef);
+		OnEquipmentsChanged.Broadcast(EquipmentsRef, true);
+	}
 }
+
+inline void APortfolioPlayerState::ServerAddEquipment_Implementation(AItemBase* EquipmentsRef)
+{
+	AddEquipment(EquipmentsRef);
+}
+
+inline bool APortfolioPlayerState::ServerAddEquipment_Validate(AItemBase* EquipmentsRef)
+{
+	return true;
+}
+
 
 void APortfolioPlayerState::AddClothes(AItemBase* ClothesRef)
 {
@@ -137,17 +155,4 @@ void APortfolioPlayerState::RemoveClothes(AItemBase* ClothesRef, bool& Removed)
 	}
 }
 
-void APortfolioPlayerState::RemoveItem(AItemBase* ItemRef, bool& Removed)
-{
-	if (ItemsInBackpack.Find(ItemRef) != -1)
-	{
-		ItemsInBackpack.RemoveSingle(ItemRef);
-		OnItemsChanged.Broadcast(ItemRef, false);
-		Removed = true;
-	}
-	else if (ItemsInBackpack.Find(ItemRef) == -1)
-	{
-		OnItemsChanged.Broadcast(ItemRef, false);
-		Removed = false;
-	}
-}
+

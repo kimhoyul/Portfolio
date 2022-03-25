@@ -30,7 +30,7 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	USceneComponent* SceneComponent;
 	
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	UStaticMeshComponent* StaticMesh;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
@@ -42,7 +42,6 @@ public:
 	UStaticMeshComponent* OutLine;
 	
 protected:
-	virtual void PostInitializeComponents() override; 
 	virtual void InitPickup(EItemType ItemTypeRef, FText NameRef, FText UIPrefixRef, UStaticMesh* StaticMeshRef);
 
 private:
@@ -59,11 +58,5 @@ public:
 	UPROPERTY()
 	FOnOverlepBoxSignature FOnOverlepBox;
 	FEndOverlepBoxSignature FEndOverlapBox;
-
-	UFUNCTION()
-	void OnOverlap(AItemPickupBase* Pickupobj);
-
-	UFUNCTION()
-	void EndOverlap(AItemPickupBase* Pickupobj);
 };
 

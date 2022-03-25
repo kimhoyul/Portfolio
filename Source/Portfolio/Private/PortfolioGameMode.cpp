@@ -1,13 +1,14 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "PortfolioGameMode.h"
+
+#include "EngineUtils.h"
 #include "PortfolioGameInstance.h"
 #include "Player/PortfolioCharacter.h"
 #include "UI/GameHUD.h"
 #include "Player/PortfolioPlayerController.h"
 #include "Player/PortfolioPlayerState.h"
 #include "PortfolioGameStateBase.h"
-#include "SpawnTest.h"
 #include "Items/ItemGroup.h"
 #include "Items/Pickup/ItemPickupBase.h"
 #include "UObject/ConstructorHelpers.h"
@@ -20,12 +21,14 @@
 #include "Items/Pickup/PickupWeaponAcc.h"
 #include "Kismet/KismetArrayLibrary.h"
 #include "Kismet/KismetMathLibrary.h"
-#include "Engine/Engine.h"
+#include "Spawn/SpawnPoint.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogPortfolioGameMode, All, All);
 
 APortfolioGameMode::APortfolioGameMode()
 {
+	//////////////////////////////////////////////////////////////////////////
+	// Class Setting
 	DefaultPawnClass = APortfolioCharacter::StaticClass();
 	PlayerControllerClass = APortfolioPlayerController::StaticClass();
 	HUDClass = AGameHUD::StaticClass();
@@ -116,14 +119,40 @@ APortfolioGameMode::APortfolioGameMode()
 void APortfolioGameMode::BeginPlay()
 {
 	GameInstanceRef = Cast<UPortfolioGameInstance>(GetGameInstance());
+	
 	TArray<AItemPickupBase*> Items;
 	GenerateItems(Items);
 	for (FConstControllerIterator It = GetWorld()->GetControllerIterator(); It; ++It)
 	{
-		PlayerController = Cast<APortfolioPlayerController>(*It);
+		PC = Cast<APortfolioPlayerController>(*It);
 	}
-	
-	PlayerController->SetPickupItems(Items);
+	PC->SetPickupItems(Items);
+
+	UClass* SpawnPointClass = ASpawnPoint::StaticClass();
+	for (TActorIterator<AActor> Actor (GetWorld(), SpawnPointClass); Actor; ++Actor)
+	{
+		SpawnPoints.Add(Cast<ASpawnPoint>(*Actor));
+	}
+}
+
+void APortfolioGameMode::Respawn(APortfolioPlayerController* PlayerController)
+{
+	if (PlayerController)
+	{
+		if (GetLocalRole() == ROLE_Authority)
+		{
+			int32 Slot = FMath::RandRange(0, SpawnPoints.Num() -1);
+			if (SpawnPoints[Slot])
+			{
+				FVector Location = SpawnPoints[Slot]->GetActorLocation();
+				FRotator Rotation = SpawnPoints[Slot]->GetActorRotation();
+				if (APawn* Pawn =  GetWorld()->SpawnActor<APawn>(DefaultPawnClass, Location, Rotation))
+				{
+					PlayerController->Possess(Pawn);
+				}
+			}
+		}
+	}
 }
 
 void APortfolioGameMode::GenerateItems(TArray<AItemPickupBase*>& Items)
@@ -670,17 +699,4 @@ FString APortfolioGameMode::GetEItemTypeAsString(EItemType EnumValue)
 		return FString("Invalid");
 	}
 	return enumPtr->GetNameStringByValue((int64)EnumValue);
-}
-
-void APortfolioGameMode::SpawnTest()
-{
-	FVector End = FVector(410.000000,-40.000000,210.000000);
-	FTransform Transform;
-	Transform.SetLocation(End);
-	Transform.SetRotation(static_cast<FQuat>(FRotator(0.0, 0.0 ,0.0)));
-	Transform.SetScale3D(FVector(1.0, 1.0, 1.0));
-
-	ASpawnTest* Actor = GetWorld()->SpawnActorDeferred<ASpawnTest>(SpawnClass, Transform);
-	
-	Actor->FinishSpawning(Transform);
 }

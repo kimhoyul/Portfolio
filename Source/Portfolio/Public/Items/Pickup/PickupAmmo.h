@@ -21,6 +21,9 @@ class PORTFOLIO_API APickupAmmo : public AItemPickupBase
 
 public:
 	FItemAmmo* Datas;
+
+	UPROPERTY(BlueprintReadOnly)
+	FItemAmmo DatasRef;
 	
 	UPROPERTY()
 	FName IDS;

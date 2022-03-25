@@ -11,20 +11,24 @@ APickupAmmo::APickupAmmo()
 	check(DT_Item_Ammo.Succeeded());
 	ItemAmmoTable = DT_Item_Ammo.Object;
 	check(ItemAmmoTable->GetRowMap().Num() > 0);
-
-	bReplicates = true;
-	bool a = true;
 }
 
 void APickupAmmo::BeginPlay()
 {
 	Super::BeginPlay();
+
+	if (GetLocalRole() == ROLE_Authority)
+	{
+		SetReplicates(true);
+	}
 	GameInstanceRef = Cast<UPortfolioGameInstance>(GetGameInstance());
 	
 	if (ID != "None")
 	{
 		Datas = ItemAmmoTable->FindRow<FItemAmmo>(ID,TEXT(""));
 
+		DatasRef = *Datas;
+		
 		if (Amount == 0)
 		{
 			Amount = Datas->PickupAmmo;

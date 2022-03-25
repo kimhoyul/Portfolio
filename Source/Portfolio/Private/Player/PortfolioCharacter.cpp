@@ -1,9 +1,7 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "PortfolioCharacter.h"
-
-#include <vcruntime_startup.h>
-
+#include "PortfolioGameMode.h"
 #include "PortfolioAnimInstance.h"
 #include "PortfolioGameInstance.h"
 #include "PortfolioPlayerController.h"
@@ -25,6 +23,7 @@
 #include "TimerManager.h"
 #include "Components/InventoryComponent.h"
 #include "Components/LineTraceComponent.h"
+#include "Items/Equipments/EquipmentsEquipment.h"
 #include "Items/Pickup/PickupHealth.h"
 #include "Player/Components/PlayerStatComponent.h"
 
@@ -202,23 +201,6 @@ FItemClothes* APortfolioCharacter::GetClothesData(FName RowName) const
 	return ClothesTable->FindRow<FItemClothes>(RowName, TEXT(""));
 }
 
-void APortfolioCharacter::OnRep_PlayerState()
-{
-	Super::OnRep_PlayerState();
-
-	PortfolioPlayerStateRef = Cast<APortfolioPlayerState>(GetPlayerState());
-
-	if (!PortfolioPlayerStateRef)
-	{
-		GEngine->AddOnScreenDebugMessage(-1, 500.0f, FColor::Yellow,FString::Printf(TEXT("APortfolioCharacter : PortfolioPlayerStateRef 생성 실패")));
-		OnRep_PlayerState();
-	}
-	// else
-	// {
-	// 	GEngine->AddOnScreenDebugMessage(-1, 500.0f, FColor::Yellow,FString::Printf(TEXT("APortfolioCharacter : PortfolioPlayerStateRef 생성 성공")));
-	// }
-}
-
 void APortfolioCharacter::BeginPlay()
 {
 	Super::BeginPlay();
@@ -265,30 +247,6 @@ void APortfolioCharacter::HandleRunning()
 	}
 }
 
-void APortfolioCharacter::ItemLineTrace()
-{
-	FVector Start = FollowCamera->GetComponentLocation();
-	FVector End = Start +(FollowCamera->GetForwardVector() * 450.0f);
-	
-	FHitResult HitResult = LineTraceComponent->LineTraceSingle(Start, End);//, true);
-	if (AActor* Actor = HitResult.GetActor())
-	{
-		//GEngine->AddOnScreenDebugMessage(-1, 1.0f, FColor::Red, FString::Printf(TEXT("Hit Actor : %s"), *Actor->GetName()));
-		if (AItemPickupBase* PickupItem = Cast<AItemPickupBase>(Actor))
-		{
-			GEngine->AddOnScreenDebugMessage(-1, 1.0f, FColor::Red, FString::Printf(TEXT("Actor is a Pickup")));
-			ServerItemLineTrace(PickupItem);
-		}
-	}
-}
-
-void APortfolioCharacter::OnUpdateWeaponDisplay(AEquipmentsWeapon* Weapon, EWeaponPosition Position, bool IsOnHand)
-{
-	FName Sockname;
-	CalculateHoldGunSocket(Sockname);
-	UpdateWeaponDisplay(Sockname);
-}
-
 FRotator APortfolioCharacter::GetAimOffsets() const
 {
 	const FVector AimDirWS = GetBaseAimRotation().Vector();
@@ -296,6 +254,13 @@ FRotator APortfolioCharacter::GetAimOffsets() const
 	const FRotator AimRotLS = AimDirLS.Rotation();
 
 	return AimRotLS;
+}
+
+void APortfolioCharacter::OnUpdateWeaponDisplay(AEquipmentsWeapon* Weapon, EWeaponPosition Position, bool IsOnHand)
+{
+	FName Sockname;
+	CalculateHoldGunSocket(Sockname);
+	UpdateWeaponDisplay(Sockname);
 }
 
 void APortfolioCharacter::SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent)
@@ -316,6 +281,65 @@ void APortfolioCharacter::SetupPlayerInputComponent(class UInputComponent* Playe
 	PlayerInputComponent->BindAction("Aiming", IE_Released, this, &APortfolioCharacter::OnStopAiming);
 	PlayerInputComponent->BindAction("Inventory", IE_Pressed, this, &APortfolioCharacter::OnToggleInInventory);
 	PlayerInputComponent->BindAction("Fire", IE_Pressed, this, &APortfolioCharacter::Fire);
+	PlayerInputComponent->BindAction("Interaction", IE_Pressed, this, &APortfolioCharacter::Interaction);
+}
+
+void APortfolioCharacter::ItemLineTrace()
+{
+	FVector Start = FollowCamera->GetComponentLocation();
+	FVector End = Start +(FollowCamera->GetForwardVector() * 450.0f);
+	
+	FHitResult HitResult = LineTraceComponent->LineTraceSingle(Start, End);//, true);
+	if (AActor* Actor = HitResult.GetActor())
+	{
+		//GEngine->AddOnScreenDebugMessage(-1, 1.0f, FColor::Red, FString::Printf(TEXT("Hit Actor : %s"), *Actor->GetName()));
+		if (AItemPickupBase* PickupItem = Cast<AItemPickupBase>(Actor))
+		{
+			//GEngine->AddOnScreenDebugMessage(-1, 1.0f, FColor::Red, FString::Printf(TEXT("Actor is a Pickup")));
+			ServerItemLineTrace(PickupItem);
+		}
+	}
+}
+
+void APortfolioCharacter::Interaction()
+{
+	FVector Start = FollowCamera->GetComponentLocation();
+	FVector End = Start +(FollowCamera->GetForwardVector() * 450.0f);
+	
+	FHitResult HitResult = LineTraceComponent->LineTraceSingle(Start, End, true);
+	if (AActor* Actor = HitResult.GetActor())
+	{
+		if (AItemPickupBase* PickupItem = Cast<AItemPickupBase>(Actor))
+		{
+			ServerInteraction();
+		}
+	}
+}
+
+void APortfolioCharacter::UIInteraction(AItemPickupBase* Item)
+{
+	if (GetLocalRole() < ROLE_Authority)
+	{
+		ServerUIInteraction(Item);
+	}
+	else
+	{
+		if (Item)
+		{
+			if (InventoryComponent->AddBackpackItem(Item))
+			{
+				if (GetLocalRole() == ROLE_Authority)
+				{
+					MultiInteraction(Item);
+				}
+			}
+			else
+			{
+				return;
+			}
+		}
+		
+	}
 }
 
 void APortfolioCharacter::OnToggleInInventory()
@@ -341,7 +365,7 @@ void APortfolioCharacter::Fire()
 }
 
 float APortfolioCharacter::TakeDamage(float Damage, FDamageEvent const& DamageEvent, AController* EventInstigator,
-	AActor* DamageCauser)
+                                      AActor* DamageCauser)
 {
 	if (GetLocalRole() < ROLE_Authority || PlayerStatComponent->GetHealthRatio() <= 0.0f) return 0.0f;
 	const float ActualDamage = Super::TakeDamage(Damage, DamageEvent, EventInstigator, DamageCauser);
@@ -351,7 +375,7 @@ float APortfolioCharacter::TakeDamage(float Damage, FDamageEvent const& DamageEv
 		PlayerStatComponent->LowerHealth(ActualDamage);
 		if (PlayerStatComponent->GetHealthRatio() <= 0.0f)
 		{
-			GEngine->AddOnScreenDebugMessage(-1, 1.0f, FColor::Red, FString::Printf(TEXT("Actor is a Died")));
+			//GEngine->AddOnScreenDebugMessage(-1, 1.0f, FColor::Red, FString::Printf(TEXT("Actor is a Died")));
 			DIe();
 		}
 	}
@@ -363,6 +387,21 @@ void APortfolioCharacter::DIe()
 	if (GetLocalRole() == ROLE_Authority)
 	{
 		MulticastDIe();
+		AGameModeBase* GM = Cast<AGameModeBase>(GetWorld()->GetAuthGameMode());
+		if (APortfolioGameMode* PFGM = Cast<APortfolioGameMode>(GM))
+		{
+			APortfolioPlayerController* PFPC = Cast<APortfolioPlayerController>(GetController());
+			PFGM->Respawn(PFPC); 
+		}
+		GetWorld()->GetTimerManager().SetTimer(DestroyHandle, this, &APortfolioCharacter::CallDestroy, 5.0f, false);
+	}
+}
+
+void APortfolioCharacter::CallDestroy()
+{
+	if (GetLocalRole() == ROLE_Authority)
+	{
+		Destroy();
 	}
 }
 
@@ -544,7 +583,6 @@ void APortfolioCharacter::VelocitySmoothing()
 // FreeLook
 void APortfolioCharacter::FreeLookStart()
 {
-	UE_LOG(LogPortfolioCharacter, Warning, TEXT("누름"));
 	UseFreeLock = false;
 	bUseControllerRotationYaw = UseFreeLock;
 	if (GetLocalRole() < ROLE_Authority)
@@ -555,7 +593,6 @@ void APortfolioCharacter::FreeLookStart()
 
 void APortfolioCharacter::FreeLookStop()
 {
-	UE_LOG(LogPortfolioCharacter, Warning, TEXT("땜"));
 	TimeLine->FreeLookTimeLineStart();
 }
 
@@ -807,6 +844,7 @@ void APortfolioCharacter::SetRunning(bool bNewRunning)
 
 void APortfolioCharacter::UpdateWeaponDisplay(FName HoldSocket)
 {
+	PortfolioPlayerStateRef = Cast<APortfolioPlayerState>(GetPlayerState());
 	bool IsEquipBackpack = false;
 	//////////////////////////////////////////////////////////////////////////
 	// Update the handheld weapon display
@@ -1086,10 +1124,12 @@ bool APortfolioCharacter::ServerSetAimRotation_Validate(float Rotation)
 
 void APortfolioCharacter::ServerItemLineTrace_Implementation(AItemPickupBase* PickupItem)
 {
-	if (APickupHealth* Pickup_Item = Cast<APickupHealth>(PickupItem))
-	{
-		Pickup_Item->UseItem(this, Pickup_Item->ID);
-	}
+	PointItem = PickupItem;
+	// if (APickupHealth* Pickup_Item = Cast<APickupHealth>(PickupItem))
+	// {
+	// 	
+	// 	Pickup_Item->UseItem(this, Pickup_Item->ID);
+	// }
 }
 
 bool APortfolioCharacter::ServerItemLineTrace_Validate(AItemPickupBase* PickupItem)
@@ -1120,9 +1160,90 @@ void APortfolioCharacter::MulticastDIe_Implementation()
 	this->GetCharacterMovement()->DisableMovement();
 	this->GetMesh()->SetCollisionEnabled(ECollisionEnabled::PhysicsOnly);
 	this->GetMesh()->SetAllBodiesSimulatePhysics(true);
+	this->GetCapsuleComponent()->DestroyComponent();
 }
 
 bool APortfolioCharacter::MulticastDIe_Validate()
+{
+	return true;
+}
+
+inline void APortfolioCharacter::ServerInteraction_Implementation()
+{
+	FVector Start = FollowCamera->GetComponentLocation();
+	FVector End = Start +(FollowCamera->GetForwardVector() * 450.0f);
+	FHitResult HitResult = LineTraceComponent->LineTraceSingle(Start, End, true);
+	if (AActor* Actor = HitResult.GetActor())
+	{
+		if (APickupHealth* PickupItem = Cast<APickupHealth>(Actor))
+		{
+			PickupItem->UseItem(this, PickupItem->ID);
+		}
+	}
+}
+
+inline bool APortfolioCharacter::ServerInteraction_Validate()
+{
+	return true;
+}
+
+
+void APortfolioCharacter::MultiInteraction_Implementation(AItemPickupBase* Item)
+{
+	Item->Box->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	Item->StaticMesh->SetVisibility(false);
+	Item->StaticMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	PointItem = nullptr;
+	Item = nullptr;
+}
+
+bool APortfolioCharacter::MultiInteraction_Validate(AItemPickupBase* Item)
+{
+	return true;
+}
+
+
+inline void APortfolioCharacter::ServerUIInteraction_Implementation(AItemPickupBase* Item)
+{
+	UIInteraction(Item);
+}
+
+inline bool APortfolioCharacter::ServerUIInteraction_Validate(AItemPickupBase* Item)
+{
+	return true;
+}
+
+void APortfolioCharacter::EquipmentSpwan(FName ID, FString SN)
+{
+	if (GetLocalRole() < ROLE_Authority)
+	{
+		ServerEquipmentSpwan(ID, SN);
+	}
+	else
+	{
+		if (GetLocalRole() == ROLE_Authority)
+		{
+			const FTransform SpawnLocation;
+			AEquipmentsEquipment* SpawnObject = GetWorld()->SpawnActorDeferred<AEquipmentsEquipment>(AEquipmentsEquipment::StaticClass(), SpawnLocation);
+			GEngine->AddOnScreenDebugMessage(-1, 500.0f, FColor::Yellow,FString::Printf(TEXT("ID = [%s]"), *ID.ToString()));
+			SpawnObject->ID = ID;
+			SpawnObject->SN = SN;
+			SpawnObject->Amount = 1;
+			SpawnObject->FinishSpawning(SpawnLocation);
+			if (PortfolioPlayerStateRef)
+			{
+				PortfolioPlayerStateRef->AddEquipment(SpawnObject);
+			}
+		}
+	}
+}
+
+void APortfolioCharacter::ServerEquipmentSpwan_Implementation(FName ID, const FString& SN)
+{
+	EquipmentSpwan(ID, SN);
+}
+
+bool APortfolioCharacter::ServerEquipmentSpwan_Validate(FName ID, const FString& SN)
 {
 	return true;
 }

@@ -18,10 +18,6 @@
 
 DEFINE_LOG_CATEGORY_STATIC(LogPortfolioPlayerController, All, All);
 
-APortfolioPlayerController::APortfolioPlayerController()
-{
-}
-
 void APortfolioPlayerController::OnRep_PlayerState()
 {
 	Super::OnRep_PlayerState();

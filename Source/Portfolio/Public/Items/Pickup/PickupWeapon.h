@@ -21,6 +21,9 @@ public:
 	int32 Ammo;
 	
 	FItemWeapon* Datas;
+	
+	UPROPERTY(BlueprintReadOnly)
+	FItemWeapon DatasRef;
 
 private:
 	UPROPERTY()

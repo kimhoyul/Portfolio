@@ -15,7 +15,6 @@ class PORTFOLIO_API APortfolioPlayerController : public APlayerController
 	GENERATED_BODY()
 
 public:
-	APortfolioPlayerController();
 	
 	virtual void OnRep_PlayerState() override;
 	

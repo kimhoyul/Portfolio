@@ -12,14 +12,17 @@ APickupEquipment::APickupEquipment()
 	check(DT_Item_Equipment.Succeeded());
 	ItemEquipmentsTable = DT_Item_Equipment.Object;
 	check(ItemEquipmentsTable->GetRowMap().Num() > 0);
-
-	bReplicates = true;
 }
 
 void APickupEquipment::BeginPlay()
 {
 	Super::BeginPlay();
 
+	if (GetLocalRole() == ROLE_Authority)
+	{
+		SetReplicates(true);
+	}
+	
 	FVector Origin;
 	FVector StaticMeshBound;
 	float SphereRadius;
@@ -41,6 +44,8 @@ void APickupEquipment::BeginPlay()
 		EquipmentType = Datas->Type;
 		FText SWITCHTO = FText::FromString(FString("SWITCH TO ")); 
 		InitPickup(EquipmentType, Datas->Name, SWITCHTO, Datas->StaticMesh);
+
+		DatasRef = *Datas;
 
 		if (Datas->Type == EItemType::EIT_Vest)
 		{

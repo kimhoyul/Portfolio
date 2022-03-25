@@ -22,8 +22,6 @@ class APortfolioCharacter : public ACharacter
 	
 public:
 	APortfolioCharacter(const FObjectInitializer& ObjectInitializer);
-
-	virtual void OnRep_PlayerState() override;
 	
 	virtual void BeginPlay() override;
 
@@ -126,6 +124,12 @@ public:
 	
 	UPROPERTY(Transient)
 	float MoveRightAxis;
+
+	//////////////////////////////////////////////////////////////////////////
+	// Timer Handle
+	FTimerHandle LineTraceHandle;
+	FTimerHandle RunningTimeHandle;
+	FTimerHandle DestroyHandle;
 	
 	//////////////////////////////////////////////////////////////////////////
 	// FreeLook
@@ -165,6 +169,10 @@ public:
 	void OnStopAiming();
 	void OnToggleInInventory();
 	void Fire();
+	void Interaction();
+
+	UFUNCTION(BlueprintCallable)
+	void UIInteraction(AItemPickupBase* Item);
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "UI")
 	TSubclassOf<class UUserWidget> InventoryWidgetClass;
@@ -177,6 +185,11 @@ public:
 
 	UPROPERTY(BlueprintReadOnly, Transient, Replicated, Category = "CharacterPose")
 	bool bWantsToAiming;
+
+	//////////////////////////////////////////////////////////////////////////
+	// Die
+	UFUNCTION()
+	void CallDestroy();
 
 	UFUNCTION()
 	void DIe();
@@ -250,7 +263,10 @@ protected:
 	UFUNCTION(	)
 	void ItemLineTrace();
 
-	FTimerHandle LineTraceHandle;
+	
+
+	UPROPERTY()
+	AItemPickupBase* PointItem;
 	
 	
 	//////////////////////////////////////////////////////////////////////////
@@ -267,7 +283,7 @@ protected:
 	UFUNCTION(BlueprintPure)
 	float ReturnPlayerStamina();
 
-	FTimerHandle RunningTimeHandle;
+	
 	
 	//////////////////////////////////////////////////////////////////////////
 	// ChangeItems
@@ -331,6 +347,21 @@ protected:
 
 	UFUNCTION(Reliable, NetMulticast, WithValidation)
 	void MulticastDIe();
+	
+	UFUNCTION(Reliable, Server, WithValidation)
+	void ServerInteraction();
+
+	UFUNCTION(Reliable, NetMulticast, WithValidation)
+	void MultiInteraction(AItemPickupBase* Item);
+
+	UFUNCTION(Reliable, Server, WithValidation)
+	void ServerUIInteraction(AItemPickupBase* Item);
+
+	UFUNCTION(BlueprintCallable)
+	void EquipmentSpwan(FName ID, FString SN);
+	
+	UFUNCTION(Reliable, Server, WithValidation)
+	void ServerEquipmentSpwan(FName ID, const FString& SN);
 	
 	//////////////////////////////////////////////////////////////////////////
 	// ForceInline

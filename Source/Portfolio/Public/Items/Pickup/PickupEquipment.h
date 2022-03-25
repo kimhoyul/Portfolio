@@ -18,6 +18,9 @@ class PORTFOLIO_API APickupEquipment : public AItemPickupBase
 
 public:
 	FItemEquipment* Datas;
+
+	UPROPERTY(BlueprintReadOnly)
+	FItemEquipment DatasRef;
 	
 private:
 	EItemType EquipmentType;

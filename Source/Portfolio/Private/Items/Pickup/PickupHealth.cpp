@@ -18,6 +18,11 @@ void APickupHealth::BeginPlay()
 {
 	Super::BeginPlay();
 
+	if (GetLocalRole() == ROLE_Authority)
+	{
+		SetReplicates(true);
+	}
+	
 	if(ID != "None")
 	{
 		Datas = ItemHealthTable->FindRow<FItemHealth>(ID,TEXT(""));
@@ -25,10 +30,8 @@ void APickupHealth::BeginPlay()
 		FText PICKUP = FText::FromString(FString("PICK UP ")); 
 		InitPickup(EItemType::EIT_Health, Datas->Name, PICKUP, Datas->StaticMesh);
 	}
-	if (GetLocalRole() == ROLE_Authority)
-	{
-		SetReplicates(true);	
-	}
+	
+	DatasRef = *Datas;
 }
 
 void APickupHealth::GetWeight(int32& Weight)
@@ -40,7 +43,6 @@ void APickupHealth::UseItem(APortfolioCharacter* Player, FName Item)
 {
 	if (GetLocalRole() == ROLE_Authority)
 	{
-		//GEngine->AddOnScreenDebugMessage(-1, 500.0f, FColor::Yellow,FString::Printf(TEXT("ItemNumber : [%s]"), *FText::FromName(Item).ToString()));
 		if (Item == "1")
 		{
 			Player->PlayerStatComponent->AddHealth(Datas->Value);
@@ -61,5 +63,7 @@ void APickupHealth::UseItem(APortfolioCharacter* Player, FName Item)
 		{
 			Player->PlayerStatComponent->AddThirst(Datas->Value);
 		}
+
+		Destroy();
 	}
 }

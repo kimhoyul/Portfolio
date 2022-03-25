@@ -14,8 +14,6 @@ class PORTFOLIO_API APickupWeaponAcc : public AItemPickupBase
 
 	APickupWeaponAcc();
 	
-	virtual void OnConstruction(const FTransform& Transform) override;
-
 	virtual void BeginPlay() override;
 
 	virtual void GetWeight(int32& Weight) override;
@@ -25,6 +23,9 @@ public:
 	EWeaponAccType AccType;
 
 	FItemWeaponAcc* Datas;
+
+	UPROPERTY(BlueprintReadOnly)
+	FItemWeaponAcc DatasRef;
 
 private:
 	UPROPERTY()
