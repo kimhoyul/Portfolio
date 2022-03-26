@@ -26,7 +26,7 @@ void APickupEquipment::BeginPlay()
 	FVector Origin;
 	FVector StaticMeshBound;
 	float SphereRadius;
-	UKismetSystemLibrary::GetComponentBounds(StaticMesh, Origin, StaticMeshBound, SphereRadius);
+	UKismetSystemLibrary::GetComponentBounds(GetIStaticMeshComponent(), Origin, StaticMeshBound, SphereRadius);
 	
 	if (EquipmentType == EItemType::EIT_Helmet)
 	{
@@ -49,14 +49,14 @@ void APickupEquipment::BeginPlay()
 
 		if (Datas->Type == EItemType::EIT_Vest)
 		{
-			StaticMesh->SetWorldScale3D(FVector(1.0f, 0.1f, 1.0f));
-			StaticMesh->SetWorldRotation(FRotator(0.0f, 0.0f, -90.0f), false, nullptr, ETeleportType::TeleportPhysics);
+			GetIStaticMeshComponent()->SetWorldScale3D(FVector(1.0f, 0.1f, 1.0f));
+			GetIStaticMeshComponent()->SetWorldRotation(FRotator(0.0f, 0.0f, -90.0f), false, nullptr, ETeleportType::TeleportPhysics);
 		}
 
 		if (Datas->Type == EItemType::EIT_Backpack)
 		{
-			StaticMesh->SetWorldScale3D(FVector(1.0f, 0.1f, 1.0f));
-			StaticMesh->SetWorldRotation(FRotator(0.0f, 0.0f, 90.0f), false, nullptr, ETeleportType::TeleportPhysics);
+			GetIStaticMeshComponent()->SetWorldScale3D(FVector(1.0f, 0.1f, 1.0f));
+			GetIStaticMeshComponent()->SetWorldRotation(FRotator(0.0f, 0.0f, 90.0f), false, nullptr, ETeleportType::TeleportPhysics);
 		}
 	}
 }

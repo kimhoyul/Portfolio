@@ -5,7 +5,7 @@
 
 AUseItemHealth::AUseItemHealth()
 {
-	const FString ItemHealthDataPath = TEXT("/Game/Datas/DataTables/Items/DT_Item_Health.DT_Item_Health");
+	const FString ItemHealthDataPath = TEXT("/Game/Datas/DataTables/Items/DT_Item_Health1.DT_Item_Health1");
 	static ConstructorHelpers::FObjectFinder<UDataTable> DT_Item_Health(*ItemHealthDataPath);
 	check(DT_Item_Health.Succeeded());
 	ItemHealthTable = DT_Item_Health.Object;

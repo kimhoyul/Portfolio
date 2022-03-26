@@ -26,7 +26,7 @@ void APickupClothes::BeginPlay()
 	FVector Origin;
 	FVector StaticMeshBound;
 	float SphereRadius;
-	UKismetSystemLibrary::GetComponentBounds(StaticMesh, Origin, StaticMeshBound, SphereRadius);
+	UKismetSystemLibrary::GetComponentBounds(GetIStaticMeshComponent(), Origin, StaticMeshBound, SphereRadius);
 	
 	AddActorLocalOffset(FVector(0.0f, 0.0f, StaticMeshBound.Z));
 
@@ -41,8 +41,8 @@ void APickupClothes::BeginPlay()
 		
 		if (ClothesType != EClothesType::ECT_Shoes)
 		{		
-			StaticMesh->SetWorldRotation(FRotator(0.0f, 0.0f, -90.0f));
-			StaticMesh->SetWorldScale3D(FVector(1.0f, 0.1f, 1.0f));
+			GetIStaticMeshComponent()->SetWorldRotation(FRotator(0.0f, 0.0f, -90.0f));
+			GetIStaticMeshComponent()->SetWorldScale3D(FVector(1.0f, 0.1f, 1.0f));
 		}
 	}
 	

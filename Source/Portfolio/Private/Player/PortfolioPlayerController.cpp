@@ -2,7 +2,7 @@
 
 
 #include "Player/PortfolioPlayerController.h"
-
+#include "Components/BoxComponent.h"
 #include "PortfolioCharacter.h"
 #include "PortfolioPlayerState.h"
 #include "Items/Pickup/PickupAmmo.h"
@@ -17,6 +17,17 @@
 #include "Net/UnrealNetwork.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogPortfolioPlayerController, All, All);
+
+void APortfolioPlayerController::SetupInputComponent()
+{
+	Super::SetupInputComponent();
+	InputComponent->BindAction("Inventory", IE_Pressed, this, &APortfolioPlayerController::OnToggleInInventory);
+}
+
+void APortfolioPlayerController::OnToggleInInventory()
+{
+	GEngine->AddOnScreenDebugMessage(-1, 500.0f, FColor::Yellow,FString::Printf(TEXT("인입")));
+}
 
 void APortfolioPlayerController::OnRep_PlayerState()
 {
@@ -38,6 +49,7 @@ void APortfolioPlayerController::BeginPlay()
 	Super::BeginPlay();
 	
 	PrimaryActorTick.bCanEverTick = true;
+	
 }
 
 bool APortfolioPlayerController::IsGameInputAllowed() const
@@ -76,7 +88,7 @@ void APortfolioPlayerController::ExecBeginOverlap(AItemPickupBase* PickupObject,
 // out of range item Remove
 void APortfolioPlayerController::ExecEndOverlap(AItemPickupBase* PickupObject)
 {
-	PickupObject->EnabledOutLine(false);
+	// PickupObject->EnabledOutLine(false);
 	
 	if (ItemsInRange.Find(PickupObject) != -1)
 	{
@@ -95,11 +107,11 @@ void APortfolioPlayerController::OutlineIte(AItemPickupBase* Item)
 	{
 		if (ArrayElement == Item)
 		{
-			Item->EnabledOutLine(true);
+			// Item->EnabledOutLine(true);
 		}
 		else
 		{
-			Item->EnabledOutLine(false);
+			// Item->EnabledOutLine(false);
 		}
 	}
 }
@@ -330,12 +342,11 @@ void APortfolioPlayerController::SpawnPickupItem(AItemBase* ItemBase, AItemPicku
 	PickupItems.Add(CreateItem);
 	CreateItem->FOnOverlepBox.BindUFunction(this, FName("ExecBeginOverlap"));
 	CreateItem->FEndOverlapBox.BindUFunction(this, FName("ExecEndOverlap"));
-	CreateItem->Box->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	CreateItem->Box->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+	CreateItem->GetIBoxComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	CreateItem->GetIBoxComponent()->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 
 	PickupItem = CreateItem;
 }
-
 
 void APortfolioPlayerController::TickActor(float DeltaTime, ELevelTick TickType, FActorTickFunction& ThisTickFunction)
 {

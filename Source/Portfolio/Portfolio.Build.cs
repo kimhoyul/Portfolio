@@ -14,7 +14,8 @@ public class Portfolio : ModuleRules
 		{
 			"Portfolio/Public/Player",
 			"Portfolio/Public/UI",
-			"Portfolio/Public/Animations"
+			"Portfolio/Public/UI/Inventory",
+			"Portfolio/Public/Animations",
 		});
 		PrivateDependencyModuleNames.AddRange(new string[] { "Slate", "SlateCore" });
 

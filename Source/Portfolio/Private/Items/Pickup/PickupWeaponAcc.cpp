@@ -28,7 +28,7 @@ void APickupWeaponAcc::BeginPlay()
 		FVector Origin;
 		FVector StaticMeshBound;
 		float SphereRadius;
-		UKismetSystemLibrary::GetComponentBounds(StaticMesh, Origin, StaticMeshBound, SphereRadius);
+		UKismetSystemLibrary::GetComponentBounds(GetIStaticMeshComponent(), Origin, StaticMeshBound, SphereRadius);
 		
 		AddActorLocalOffset(FVector(0.0f, 0.0f, StaticMeshBound.Z));
 	}
@@ -54,17 +54,17 @@ void APickupWeaponAcc::BeginPlay()
 			}
 		case  EWeaponAccType::EWAT_Foregrip :
 			{
-				StaticMesh->SetWorldRotation(FRotator(-90.0f, 0.0f, 0.0f));
+				GetIStaticMeshComponent()->SetWorldRotation(FRotator(-90.0f, 0.0f, 0.0f));
 				break;
 			}
 		case  EWeaponAccType::EWAT_Mag :
 			{
-				StaticMesh->SetWorldRotation(FRotator(-90.0f, 0.0f, 0.0f));
+				GetIStaticMeshComponent()->SetWorldRotation(FRotator(-90.0f, 0.0f, 0.0f));
 				break;
 			}
 		case EWeaponAccType::EWAT_Buttstock :
 			{
-				StaticMesh->SetWorldRotation(FRotator(-90.0f, 0.0f, 0.0f));
+				GetIStaticMeshComponent()->SetWorldRotation(FRotator(-90.0f, 0.0f, 0.0f));
 				break;
 			}
 		}

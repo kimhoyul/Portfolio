@@ -3,10 +3,11 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Components/BoxComponent.h"
-#include "Components/WidgetComponent.h"
 #include "Items/ItemBase.h"
 #include "ItemPickupBase.generated.h"
+
+class UBoxComponent;
+class UWidgetComponent;
 
 UCLASS()
 class PORTFOLIO_API AItemPickupBase : public AItemBase
@@ -17,40 +18,50 @@ public:
 	AItemPickupBase();
 
 	virtual void BeginPlay() override;
-	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override; 
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+
+	void InInventory(bool In);
+	
+	UPROPERTY(ReplicatedUsing = OnRep_Pickup)
+	bool ObjectPickup;
 
 	UFUNCTION()
-	void EnabledOutLine(bool bEnabled);
-
-	UFUNCTION(NetMulticast, Reliable, WithValidation)
-	void MulticastEnabledOutLine(bool bEnabled);
+	void OnRep_Pickup();
 	
-	FText UIPrefix;
+	/////////////////////////////////////////////////////////////////////////
+	// Components
+	UBoxComponent* GetIBoxComponent() { return Box; }
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	USceneComponent* SceneComponent;
-	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	UStaticMeshComponent* StaticMesh;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	UBoxComponent* Box;
-
-	UPROPERTY()
-	UWidgetComponent* UI;
-	UPROPERTY()
-	UStaticMeshComponent* OutLine;
-	
-protected:
-	virtual void InitPickup(EItemType ItemTypeRef, FText NameRef, FText UIPrefixRef, UStaticMesh* StaticMeshRef);
+	UStaticMeshComponent* GetIStaticMeshComponent() { return StaticMesh; }
 
 private:
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Scene", meta = (AllowPrivateAccess = "true"))
+	USceneComponent* SceneComponent;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "StaticMesh", meta = (AllowPrivateAccess = "true"))
+	UStaticMeshComponent* StaticMesh;
+	
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "UI", meta = (AllowPrivateAccess = "true"))
+	UWidgetComponent* UI;
+	
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "OutLine", meta = (AllowPrivateAccess = "true"))
+	UStaticMeshComponent* OutLine;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Collision", meta = (AllowPrivateAccess = "true"))
+	UBoxComponent* Box;
+	
+public:
+	/////////////////////////////////////////////////////////////////////////
+	// Shining Out Line | Trigger
+private:
 	UFUNCTION()
- 	void OnBoxBeginOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
+	 void OnBoxBeginOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
 
 	UFUNCTION()
 	void OnOverlapEnd(class UPrimitiveComponent* OverlappedComp,  AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
 
+	/////////////////////////////////////////////////////////////////////////
+	// Shining Out Line | Delegate
 public:
 	DECLARE_DYNAMIC_DELEGATE_TwoParams(FOnOverlepBoxSignature, AItemPickupBase*, PickupObj, AActor*, OtherActor);
 	DECLARE_DYNAMIC_DELEGATE_OneParam(FEndOverlepBoxSignature, AItemPickupBase*, PickupObj);
@@ -58,5 +69,20 @@ public:
 	UPROPERTY()
 	FOnOverlepBoxSignature FOnOverlepBox;
 	FEndOverlepBoxSignature FEndOverlapBox;
+	
+protected:
+	/////////////////////////////////////////////////////////////////////////
+	// Set property
+	virtual void InitPickup(EItemType ItemTypeRef, FText NameRef, FText UIPrefixRef, UStaticMesh* StaticMeshRef);
+	
+	FText UIPrefix;
+
+	// /////////////////////////////////////////////////////////////////////////
+	// // Shining Out Line
+	// UFUNCTION()
+	// void EnabledOutLine(bool bEnabled);
+	//
+	// UFUNCTION(NetMulticast, Reliable, WithValidation)
+	// void MulticastEnabledOutLine(bool bEnabled);
 };
 

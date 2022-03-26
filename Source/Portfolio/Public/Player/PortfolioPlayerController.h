@@ -8,6 +8,7 @@
 #include "PortfolioPlayerController.generated.h"
 
 class APortfolioPlayerState;
+class UVicinityListWidget;
 
 UCLASS()
 class PORTFOLIO_API APortfolioPlayerController : public APlayerController
@@ -15,10 +16,13 @@ class PORTFOLIO_API APortfolioPlayerController : public APlayerController
 	GENERATED_BODY()
 
 public:
+	virtual void BeginPlay() override;
+	
+	void OnToggleInInventory();
+	
+	virtual void SetupInputComponent() override;
 	
 	virtual void OnRep_PlayerState() override;
-	
-	virtual void BeginPlay() override;
 	
 	bool IsGameInputAllowed() const;
 	

@@ -6,6 +6,16 @@
 #include "StructData.generated.h"
 
 USTRUCT(BlueprintType)
+struct FSpawnPoints : public FTableRowBase
+{
+	GENERATED_BODY()
+public:
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FVector SpawnLocation;
+};
+
+USTRUCT(BlueprintType)
 struct FItemClothes : public FTableRowBase
 {
 	GENERATED_BODY()
@@ -171,6 +181,8 @@ public:
 	float Limit = 0;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	int32 ProbabilityPercent = 0;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	int32 Cost = 0;
 	
 };
 

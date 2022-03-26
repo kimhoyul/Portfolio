@@ -7,9 +7,8 @@
 #include "GameFramework/GameModeBase.h"
 #include "PortfolioGameMode.generated.h"
 
-class AItemPickupBase;
 class APortfolioPlayerController;
-
+class AItemPickupBase;
 class UPortfolioGameInstance;
 
 UCLASS(minimalapi)
@@ -23,52 +22,76 @@ public:
 	virtual void BeginPlay() override;
 
 	void Respawn(APortfolioPlayerController* PC);
+
+	FVector GetSpawnPoint();
+
+protected:
+	//////////////////////////////////////////////////////////////////////////
+	// spawn
 	
-	UFUNCTION(Category = "Generat Items")
+	UFUNCTION()
+	void Spawn(APortfolioPlayerController* Controller);
+
+	FVector DefaultSpawnLocation;
+
+	UPROPERTY(EditAnywhere, Category = "Respawn")
+	float RespawnTime;
+		
+	UPROPERTY()
+	TArray<FVector> SpawnPoints;
+
+	//////////////////////////////////////////////////////////////////////////
+	// spawn | DataTable variables
+	UPROPERTY()
+	UDataTable* SpawnPointLocationTable;
+
+private:
+	//////////////////////////////////////////////////////////////////////////
+	// Generate Random Items
+	UFUNCTION()
 	void GenerateItems(TArray<AItemPickupBase*>& Items);
 
-	UFUNCTION(Category = "Generat Items")
+	UFUNCTION()
 	void RandomItemNumber(int32 &Number);
 
-	UFUNCTION(Category = "Generat Items")
+	UFUNCTION()
 	void RandomItemType(EItemType &ItemType);
 
-	UFUNCTION(Category = "Generat Items")
+	UFUNCTION()
 	void RandomItemID(EItemType ItemTypeRef, FItemTypeAndID& ItemRef);
 
-	UFUNCTION(Category = "Generat Items")
+	UFUNCTION()
 	void RandomLocation(TArray<FTransform> Available, FTransform& Location);
-	
-private:
 
 	void ShuffleArray(TArray<int32>& IntArr, TArray<EItemType> &EnumArr, TArray<FItemTypeAndID>& StrutRef);
 	
-	FNumberProbability* NumperProbabilityDatas;
+	//////////////////////////////////////////////////////////////////////////
+	// Generate Random Items | Structure variables
+	FNumberProbability* NumberProbabilityData;
 
-	FItemTypeProbability* ItemTypeProbabilityDatas;
+	FItemTypeProbability* ItemTypeProbabilityData;
 
-	FItemWeapon* ItemWeaponDatas;
+	FItemWeapon* ItemWeaponData;
 
-	FItemWeaponAcc* ItemWeaponAccDatas;
+	FItemWeaponAcc* ItemWeaponAccData;
 
-	FItemAmmo* ItemAmmoDatas;
+	FItemAmmo* ItemAmmoData;
 
-	FItemHealth* ItemHealthDatas;
+	FItemHealth* ItemHealthData;
 
-	FItemBoost* ItemBoostDatas;
+	FItemBoost* ItemBoostData;
 
-	FItemEquipment* ItemEquipmentDatas;
+	FItemEquipment* ItemEquipmentData;
 
-	FItemClothes* temClothesDatas;
-	
-	UPROPERTY()
-	UPortfolioGameInstance* GameInstanceRef;
-	
+	FItemClothes* temClothesData;
+
+	//////////////////////////////////////////////////////////////////////////
+	// Generate Random Items | DataTable variables
 	UPROPERTY()
 	UDataTable* ItemGroupLocationTable;
 
 	UPROPERTY()
-	UDataTable* NumperProbabilityTable;
+	UDataTable* NumberProbabilityTable;
 
 	UPROPERTY()
 	UDataTable* ItemTypeProbabilityTable;
@@ -93,15 +116,18 @@ private:
 
 	UPROPERTY()
 	UDataTable* ItemClothesTable;
-
+	
+	//////////////////////////////////////////////////////////////////////////
+	// Enum To String
 	FString GetEItemTypeAsString(EItemType EnumValue);
 
-protected:
-	TArray<class ASpawnPoint*> SpawnPoints;
-	
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "GameFramework")
-	APortfolioPlayerController* PC;
-	
+	//////////////////////////////////////////////////////////////////////////
+	// GameFrameWork Ref
+	UPROPERTY()
+	UPortfolioGameInstance* GameInstanceRef;
+
+	UPROPERTY()
+	APortfolioPlayerController* Controller;
 };
 
 

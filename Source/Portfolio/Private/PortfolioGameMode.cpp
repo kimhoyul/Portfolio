@@ -1,17 +1,34 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
+
+//////////////////////////////////////////////////////////////////////////
+// Base
 #include "PortfolioGameMode.h"
 
+//////////////////////////////////////////////////////////////////////////
+// Engine Function
 #include "EngineUtils.h"
+#include "UObject/ConstructorHelpers.h"
+#include "Kismet/KismetArrayLibrary.h"
+#include "Kismet/KismetMathLibrary.h"
+#include "TimerManager.h"
+
+//////////////////////////////////////////////////////////////////////////
+// GameFrameWork Ref
 #include "PortfolioGameInstance.h"
+
+//////////////////////////////////////////////////////////////////////////
+// Class Setting
 #include "Player/PortfolioCharacter.h"
 #include "UI/GameHUD.h"
 #include "Player/PortfolioPlayerController.h"
 #include "Player/PortfolioPlayerState.h"
 #include "PortfolioGameStateBase.h"
+
+//////////////////////////////////////////////////////////////////////////
+// Item Generation Ref
 #include "Items/ItemGroup.h"
 #include "Items/Pickup/ItemPickupBase.h"
-#include "UObject/ConstructorHelpers.h"
 #include "Items/Pickup/PickupAmmo.h"
 #include "Items/Pickup/PickupBoost.h"
 #include "Items/Pickup/PickupClothes.h"
@@ -19,8 +36,9 @@
 #include "Items/Pickup/PickupHealth.h"
 #include "Items/Pickup/PickupWeapon.h"
 #include "Items/Pickup/PickupWeaponAcc.h"
-#include "Kismet/KismetArrayLibrary.h"
-#include "Kismet/KismetMathLibrary.h"
+
+//////////////////////////////////////////////////////////////////////////
+// Spawn Ref
 #include "Spawn/SpawnPoint.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogPortfolioGameMode, All, All);
@@ -36,6 +54,14 @@ APortfolioGameMode::APortfolioGameMode()
 	GameStateClass = APortfolioGameStateBase::StaticClass();
 
 	//////////////////////////////////////////////////////////////////////////
+	// Get DT_SpawnLocation
+	const FString SpawnPointLocationDataPath = TEXT("/Game/Datas/DataTables/Respawn/DT_SpawnPoint.DT_SpawnPoint");
+	static ConstructorHelpers::FObjectFinder<UDataTable> DT_SpawnPointLocation(*SpawnPointLocationDataPath);
+	check(DT_SpawnPointLocation.Succeeded());
+	SpawnPointLocationTable = DT_SpawnPointLocation.Object;
+	check(SpawnPointLocationTable->GetRowMap().Num() > 0);
+	
+	//////////////////////////////////////////////////////////////////////////
 	// Get DT_ItemGroupLocation
 	const FString ItemGroupLocationDataPath = TEXT("/Game/Datas/DataTables/ItemGeneration/DT_ItemGroupLocation.DT_ItemGroupLocation");
 	static ConstructorHelpers::FObjectFinder<UDataTable> DT_ItemGroupLocation(*ItemGroupLocationDataPath);
@@ -45,11 +71,11 @@ APortfolioGameMode::APortfolioGameMode()
 
 	//////////////////////////////////////////////////////////////////////////
 	// Get DT_Numberprobability
-	const FString NumperProbabilityDataPath = TEXT("/Game/Datas/DataTables/ItemGeneration/DT_Numberprobability.DT_Numberprobability");
-	static ConstructorHelpers::FObjectFinder<UDataTable> DT_Numberprobability(*NumperProbabilityDataPath);
+	const FString NumberProbabilityDataPath = TEXT("/Game/Datas/DataTables/ItemGeneration/DT_Numberprobability.DT_Numberprobability");
+	static ConstructorHelpers::FObjectFinder<UDataTable> DT_Numberprobability(*NumberProbabilityDataPath);
 	check(DT_Numberprobability.Succeeded());
-	NumperProbabilityTable = DT_Numberprobability.Object;
-	check(NumperProbabilityTable->GetRowMap().Num() > 0);
+	NumberProbabilityTable = DT_Numberprobability.Object;
+	check(NumberProbabilityTable->GetRowMap().Num() > 0);
 
 	//////////////////////////////////////////////////////////////////////////
 	// Get DT_ItemTypeprobability
@@ -85,7 +111,7 @@ APortfolioGameMode::APortfolioGameMode()
 
 	//////////////////////////////////////////////////////////////////////////
 	// Get DT_Item_Health
-	const FString ItemHealthDataPath = TEXT("/Game/Datas/DataTables/Items/DT_Item_Health.DT_Item_Health");
+	const FString ItemHealthDataPath = TEXT("/Game/Datas/DataTables/Items/DT_Item_Health1.DT_Item_Health1");
 	static ConstructorHelpers::FObjectFinder<UDataTable> DT_Item_Health(*ItemHealthDataPath);
 	check(DT_Item_Health.Succeeded());
 	ItemHealthTable = DT_Item_Health.Object;
@@ -118,43 +144,79 @@ APortfolioGameMode::APortfolioGameMode()
 
 void APortfolioGameMode::BeginPlay()
 {
+	//////////////////////////////////////////////////////////////////////////
+	// Cast PortfolioGameInstance Ref
 	GameInstanceRef = Cast<UPortfolioGameInstance>(GetGameInstance());
-	
-	TArray<AItemPickupBase*> Items;
-	GenerateItems(Items);
+
+	//////////////////////////////////////////////////////////////////////////
+	// Cast PortfolioPlayerController Ref 
 	for (FConstControllerIterator It = GetWorld()->GetControllerIterator(); It; ++It)
 	{
-		PC = Cast<APortfolioPlayerController>(*It);
+		Controller = Cast<APortfolioPlayerController>(*It);
 	}
-	PC->SetPickupItems(Items);
+	
+	//////////////////////////////////////////////////////////////////////////
+	// Generate Random Items 
+	TArray<AItemPickupBase*> Items;
+	GenerateItems(Items);
 
-	UClass* SpawnPointClass = ASpawnPoint::StaticClass();
-	for (TActorIterator<AActor> Actor (GetWorld(), SpawnPointClass); Actor; ++Actor)
+	//////////////////////////////////////////////////////////////////////////
+	// SetPickupItems
+	Controller->SetPickupItems(Items);
+
+	//////////////////////////////////////////////////////////////////////////
+	// Set Random & Default Spawn Points
+	TArray<FName> RowNames = SpawnPointLocationTable->GetRowNames();
+	for (FName RowName : RowNames)
 	{
-		SpawnPoints.Add(Cast<ASpawnPoint>(*Actor));
+		FSpawnPoints* SpawnPointsData = SpawnPointLocationTable->FindRow<FSpawnPoints>(RowName,TEXT(""));
+		SpawnPoints.Add(SpawnPointsData->SpawnLocation);
+	}
+	DefaultSpawnLocation = FVector(-58198.562500,-159507.109375,-6536.640625);
+	RespawnTime = 3.0f;
+}
+
+//////////////////////////////////////////////////////////////////////////
+// Spawn
+void APortfolioGameMode::Spawn(APortfolioPlayerController* ControllerRef)
+{
+	FVector Location = GetSpawnPoint();
+	FRotator Rotation = FRotator::ZeroRotator;
+	if (APawn* Pawn =  GetWorld()->SpawnActor<APawn>(DefaultPawnClass, Location, Rotation))
+	{
+		ControllerRef->Possess(Pawn);
 	}
 }
 
-void APortfolioGameMode::Respawn(APortfolioPlayerController* PlayerController)
+FVector APortfolioGameMode::GetSpawnPoint()
 {
-	if (PlayerController)
+	for (int32 i = 0; i < SpawnPoints.Num(); ++i)
+	{
+		int32 Slot = FMath::RandRange(0, SpawnPoints.Num() -1);
+		if (SpawnPoints[Slot] != FVector::ZeroVector)
+		{
+			return SpawnPoints[Slot];
+		}
+	}
+	return DefaultSpawnLocation;
+}
+
+void APortfolioGameMode::Respawn(APortfolioPlayerController* ControllerRef)
+{
+	if (ControllerRef)
 	{
 		if (GetLocalRole() == ROLE_Authority)
 		{
-			int32 Slot = FMath::RandRange(0, SpawnPoints.Num() -1);
-			if (SpawnPoints[Slot])
-			{
-				FVector Location = SpawnPoints[Slot]->GetActorLocation();
-				FRotator Rotation = SpawnPoints[Slot]->GetActorRotation();
-				if (APawn* Pawn =  GetWorld()->SpawnActor<APawn>(DefaultPawnClass, Location, Rotation))
-				{
-					PlayerController->Possess(Pawn);
-				}
-			}
+			FTimerDelegate RespawnDelegate;
+			RespawnDelegate.BindUFunction(this, FName("Spawn"), ControllerRef);
+			FTimerHandle RespawnHandle;
+			GetWorld()->GetTimerManager().SetTimer(RespawnHandle, RespawnDelegate, 3.0f, false);
 		}
 	}
 }
 
+//////////////////////////////////////////////////////////////////////////
+// GenerateItems
 void APortfolioGameMode::GenerateItems(TArray<AItemPickupBase*>& Items)
 {
 	TArray<FTransform> UsedLocation;
@@ -196,7 +258,7 @@ void APortfolioGameMode::GenerateItems(TArray<AItemPickupBase*>& Items)
 			//GEngine->AddOnScreenDebugMessage(-1, 500.0f, FColor::Yellow, FString::Printf(TEXT("RandomItemType 생성 : [%d] 회차"), i + 1));
 			RandomItemType(ItemType);
 
-			FString Type = GetEItemTypeAsString(ItemType);
+			//FString Type = GetEItemTypeAsString(ItemType);
 			if (ItemTypeArr.Find(ItemType) == -1)
 			{
 				//GEngine->AddOnScreenDebugMessage(-1, 500.0f, FColor::Yellow, FString::Printf(TEXT("ItemTypeArr 에 등록할 ItemType = %s"), *Type));
@@ -217,7 +279,7 @@ void APortfolioGameMode::GenerateItems(TArray<AItemPickupBase*>& Items)
 			FItemTypeAndID Item;
 			RandomItemID(RandItemType, Item);
 
-			FString Type = GetEItemTypeAsString(Item.Type);
+			//FString Type = GetEItemTypeAsString(Item.Type);
 			//GEngine->AddOnScreenDebugMessage(-1, 500.0f, FColor::Yellow, FString::Printf(TEXT("RandomItemID Type = %s, ID = %s"), *Type, *FText::FromName(Item.ID).ToString()));
 
 			ItemsIDArr.Add(Item);
@@ -232,7 +294,7 @@ void APortfolioGameMode::GenerateItems(TArray<AItemPickupBase*>& Items)
 		for (FItemTypeAndID ItemTypeAndID : ItemsIDArr)
 		{
 			Findweapon++;
-			FString Type = GetEItemTypeAsString(ItemTypeAndID.Type);
+			//FString Type = GetEItemTypeAsString(ItemTypeAndID.Type);
 			//GEngine->AddOnScreenDebugMessage(-1, 500.0f, FColor::Yellow, FString::Printf(TEXT("무기아이템 검색 [%d]회차 Type = %s"), Findweapon, *Type));
 
 			if (ItemTypeAndID.Type == EItemType::EIT_Weapon)
@@ -255,7 +317,7 @@ void APortfolioGameMode::GenerateItems(TArray<AItemPickupBase*>& Items)
 				{
 					if (Array.Type != EItemType::EIT_Weapon)
 					{
-						FString Type1 = GetEItemTypeAsString(Array.Type);
+						//FString Type1 = GetEItemTypeAsString(Array.Type);
 						//GEngine->AddOnScreenDebugMessage(-1, 500.0f, FColor::Yellow,FString::Printf(TEXT("삭제 아이템은 ItemsIDArr[%d] 의 Item Type = %s"), Index,*Type1));
 						ItemsIDArr.RemoveAt(Index);
 						break;
@@ -278,7 +340,7 @@ void APortfolioGameMode::GenerateItems(TArray<AItemPickupBase*>& Items)
 			testnum++;
 			SpawnType = Array.Type;
 			SpawnID = Array.ID;
-			FString Type = GetEItemTypeAsString(SpawnType);
+			//FString Type = GetEItemTypeAsString(SpawnType);
 			//GEngine->AddOnScreenDebugMessage(-1, 500.0f, FColor::Yellow,FString::Printf(TEXT("%d번째 소환할 아이템 Type = %s, ID = %s"), testnum, *Type, *FText::FromName(SpawnID).ToString()));
 
 			//////////////////////////////////////////////////////////////////////////
@@ -408,24 +470,22 @@ void APortfolioGameMode::GenerateItems(TArray<AItemPickupBase*>& Items)
 	Items = ItemsObject; 
 }
 
-
-
 void APortfolioGameMode::RandomItemNumber(int32 &Number)
 {
 	TArray<int32> IntArr;
 	
-	TArray<FName> RowNames = NumperProbabilityTable->GetRowNames();
+	TArray<FName> RowNames = NumberProbabilityTable->GetRowNames();
 
 	//////////////////////////////////////////////////////////////////////////
 	// Number of random items
 	for (FName RowName : RowNames)
 	{
-		NumperProbabilityDatas = NumperProbabilityTable->FindRow<FNumberProbability>(RowName,TEXT(""));
+		NumberProbabilityData = NumberProbabilityTable->FindRow<FNumberProbability>(RowName,TEXT(""));
 
 		
-		for (int i = 1; i <= NumperProbabilityDatas->Percent; ++i)
+		for (int i = 1; i <= NumberProbabilityData->Percent; ++i)
 		{
-			IntArr.Add(NumperProbabilityDatas->Number);
+			IntArr.Add(NumberProbabilityData->Number);
 		}
 	}
 
@@ -448,12 +508,12 @@ void APortfolioGameMode::RandomItemType(EItemType& ItemType)
 	// Number of random items
 	for (FName RowName : RowNames)
 	{
-		ItemTypeProbabilityDatas = ItemTypeProbabilityTable->FindRow<FItemTypeProbability>(RowName,TEXT(""));
+		ItemTypeProbabilityData = ItemTypeProbabilityTable->FindRow<FItemTypeProbability>(RowName,TEXT(""));
 
 		
-		for (int i = 1; i <= ItemTypeProbabilityDatas->Percent; ++i)
+		for (int i = 1; i <= ItemTypeProbabilityData->Percent; ++i)
 		{
-			EnumArr.Add(ItemTypeProbabilityDatas->Type);
+			EnumArr.Add(ItemTypeProbabilityData->Type);
 		}
 	}
 
@@ -477,9 +537,9 @@ void APortfolioGameMode::RandomItemID(EItemType ItemTypeRef, FItemTypeAndID& Ite
 			
 			for (FName RowName : RowNames)
 			{
-				ItemWeaponDatas = ItemWeaponTable->FindRow<FItemWeapon>(RowName,TEXT(""));
+				ItemWeaponData = ItemWeaponTable->FindRow<FItemWeapon>(RowName,TEXT(""));
 				
-				for (int i = 1; i <= ItemWeaponDatas->ProbabilityPercent; ++i)
+				for (int i = 1; i <= ItemWeaponData->ProbabilityPercent; ++i)
 				{
 					FItemTypeAndID AddRef;
 					AddRef.Type = EItemType::EIT_Weapon;
@@ -508,9 +568,9 @@ void APortfolioGameMode::RandomItemID(EItemType ItemTypeRef, FItemTypeAndID& Ite
 			
 			for (FName RowName : RowNames)
 			{
-				ItemAmmoDatas = ItemAmmoTable->FindRow<FItemAmmo>(RowName,TEXT(""));
+				ItemAmmoData = ItemAmmoTable->FindRow<FItemAmmo>(RowName,TEXT(""));
 				
-				for (int i = 1; i <= ItemAmmoDatas->ProbabilityPercent; ++i)
+				for (int i = 1; i <= ItemAmmoData->ProbabilityPercent; ++i)
 				{
 					FItemTypeAndID AddRef;
 					AddRef.Type = EItemType::EIT_Ammo;
@@ -526,9 +586,9 @@ void APortfolioGameMode::RandomItemID(EItemType ItemTypeRef, FItemTypeAndID& Ite
 			
 			for (FName RowName : RowNames)
 			{
-				ItemHealthDatas = ItemHealthTable->FindRow<FItemHealth>(RowName,TEXT(""));
+				ItemHealthData = ItemHealthTable->FindRow<FItemHealth>(RowName,TEXT(""));
 				
-				for (int i = 1; i <= ItemHealthDatas->ProbabilityPercent; ++i)
+				for (int i = 1; i <= ItemHealthData->ProbabilityPercent; ++i)
 				{
 					FItemTypeAndID AddRef;
 					AddRef.Type = EItemType::EIT_Health;
@@ -544,9 +604,9 @@ void APortfolioGameMode::RandomItemID(EItemType ItemTypeRef, FItemTypeAndID& Ite
 			
 			for (FName RowName : RowNames)
 			{
-				ItemBoostDatas = ItemBoostTable->FindRow<FItemBoost>(RowName,TEXT(""));
+				ItemBoostData = ItemBoostTable->FindRow<FItemBoost>(RowName,TEXT(""));
 				
-				for (int i = 1; i <= ItemBoostDatas->ProbabilityPercent; ++i)
+				for (int i = 1; i <= ItemBoostData->ProbabilityPercent; ++i)
 				{
 					FItemTypeAndID AddRef;
 					AddRef.Type = EItemType::EIT_Boost;
@@ -562,11 +622,11 @@ void APortfolioGameMode::RandomItemID(EItemType ItemTypeRef, FItemTypeAndID& Ite
 			
 			for (FName RowName : RowNames)
 			{
-				ItemEquipmentDatas = ItemEquipmentsTable->FindRow<FItemEquipment>(RowName,TEXT(""));
+				ItemEquipmentData = ItemEquipmentsTable->FindRow<FItemEquipment>(RowName,TEXT(""));
 
-				if (ItemEquipmentDatas->Type == EItemType::EIT_Helmet)
+				if (ItemEquipmentData->Type == EItemType::EIT_Helmet)
 				{
-					for (int i = 1; i <= ItemEquipmentDatas->ProbabilityPercent; ++i)
+					for (int i = 1; i <= ItemEquipmentData->ProbabilityPercent; ++i)
 					{
 						FItemTypeAndID AddRef;
 						AddRef.Type = EItemType::EIT_Helmet;
@@ -583,11 +643,11 @@ void APortfolioGameMode::RandomItemID(EItemType ItemTypeRef, FItemTypeAndID& Ite
 			
 			for (FName RowName : RowNames)
 			{
-				ItemEquipmentDatas = ItemEquipmentsTable->FindRow<FItemEquipment>(RowName,TEXT(""));
+				ItemEquipmentData = ItemEquipmentsTable->FindRow<FItemEquipment>(RowName,TEXT(""));
 
-				if (ItemEquipmentDatas->Type == EItemType::EIT_Vest)
+				if (ItemEquipmentData->Type == EItemType::EIT_Vest)
 				{
-					for (int i = 1; i <= ItemEquipmentDatas->ProbabilityPercent; ++i)
+					for (int i = 1; i <= ItemEquipmentData->ProbabilityPercent; ++i)
 					{
 						FItemTypeAndID AddRef;
 						AddRef.Type = EItemType::EIT_Vest;
@@ -604,11 +664,11 @@ void APortfolioGameMode::RandomItemID(EItemType ItemTypeRef, FItemTypeAndID& Ite
 			
 			for (FName RowName : RowNames)
 			{
-				ItemEquipmentDatas = ItemEquipmentsTable->FindRow<FItemEquipment>(RowName,TEXT(""));
+				ItemEquipmentData = ItemEquipmentsTable->FindRow<FItemEquipment>(RowName,TEXT(""));
 
-				if (ItemEquipmentDatas->Type == EItemType::EIT_Backpack)
+				if (ItemEquipmentData->Type == EItemType::EIT_Backpack)
 				{
-					for (int i = 1; i <= ItemEquipmentDatas->ProbabilityPercent; ++i)
+					for (int i = 1; i <= ItemEquipmentData->ProbabilityPercent; ++i)
 					{
 						FItemTypeAndID AddRef;
 						AddRef.Type = EItemType::EIT_Backpack;
@@ -691,6 +751,8 @@ void APortfolioGameMode::ShuffleArray(TArray<int32>& IntArr, TArray<EItemType>& 
 	}
 }
 
+//////////////////////////////////////////////////////////////////////////
+// Enum To String
 FString APortfolioGameMode::GetEItemTypeAsString(EItemType EnumValue)
 {
 	const UEnum* enumPtr = FindObject<UEnum>(ANY_PACKAGE, TEXT("EItemType"), true);

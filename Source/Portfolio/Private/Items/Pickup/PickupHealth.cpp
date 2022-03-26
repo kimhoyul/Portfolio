@@ -7,7 +7,7 @@
 
 APickupHealth::APickupHealth()
 {
-	const FString ItemHealthDataPath = TEXT("/Game/Datas/DataTables/Items/DT_Item_Health.DT_Item_Health");
+	const FString ItemHealthDataPath = TEXT("/Game/Datas/DataTables/Items/DT_Item_Health1.DT_Item_Health1");
 	static ConstructorHelpers::FObjectFinder<UDataTable> DT_Item_Health(*ItemHealthDataPath);
 	check(DT_Item_Health.Succeeded());
 	ItemHealthTable = DT_Item_Health.Object;
@@ -45,23 +45,23 @@ void APickupHealth::UseItem(APortfolioCharacter* Player, FName Item)
 	{
 		if (Item == "1")
 		{
-			Player->PlayerStatComponent->AddHealth(Datas->Value);
+			Player->GetPlayerStatComponentComponent()->AddHealth(Datas->Value);
 		}
 		else if (Item == "2")
 		{
-			Player->PlayerStatComponent->AddHealth(Datas->Value);
+			Player->GetPlayerStatComponentComponent()->AddHealth(Datas->Value);
 		}
 		else if (Item == "3")
 		{
-			Player->PlayerStatComponent->AddHealth(Datas->Value);
+			Player->GetPlayerStatComponentComponent()->AddHealth(Datas->Value);
 		}
 		else if (Item == "4")
 		{
-			Player->PlayerStatComponent->AddHunger(Datas->Value);
+			Player->GetPlayerStatComponentComponent()->AddHunger(Datas->Value);
 		}
 		else if (Item == "5")
 		{
-			Player->PlayerStatComponent->AddThirst(Datas->Value);
+			Player->GetPlayerStatComponentComponent()->AddThirst(Datas->Value);
 		}
 
 		Destroy();

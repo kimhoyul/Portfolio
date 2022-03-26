@@ -1,9 +1,9 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 #include "Items/Pickup/ItemPickupBase.h"
-
 #include "PortfolioCharacter.h"
-#include "Components/InventoryComponent.h"
+#include "Components/BoxComponent.h"
+#include "Components/WidgetComponent.h"
 #include "Kismet/KismetSystemLibrary.h"
 #include "Net/UnrealNetwork.h"
 
@@ -11,6 +11,8 @@ DEFINE_LOG_CATEGORY_STATIC(LogItemPickupBase, All, All);
 
 AItemPickupBase::AItemPickupBase()
 {
+	/////////////////////////////////////////////////////////////////////////
+	// Set Components
 	SceneComponent = CreateDefaultSubobject<USceneComponent>(TEXT("SceneComponent"));
 	RootComponent = SceneComponent;
 	
@@ -32,12 +34,23 @@ AItemPickupBase::AItemPickupBase()
 	Box->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
 	Box->OnComponentBeginOverlap.AddDynamic(this, &AItemPickupBase::OnBoxBeginOverlap);
 	Box->OnComponentEndOverlap.AddDynamic(this, &AItemPickupBase::OnOverlapEnd);
+	Box->SetHiddenInGame(true);
 }
 
 void AItemPickupBase::BeginPlay()
 {
 	Super::BeginPlay();
+
+	/////////////////////////////////////////////////////////////////////////
+	// Class Replicates
+	if (GetLocalRole() == ROLE_Authority)
+	{
+		bReplicates = true;
+		SetReplicatingMovement(true);
+	}
 	
+	/////////////////////////////////////////////////////////////////////////
+	// Drop the item to the ground 
 	FVector ActorLocation = GetActorLocation();
 	float ActorLocationZ = ActorLocation.Z * 10.0f;
 	TArray<TEnumAsByte<EObjectTypeQuery>> ObjectTypes; // 히트 가능한 오브젝트 유형들.
@@ -46,21 +59,32 @@ void AItemPickupBase::BeginPlay()
 	FHitResult Outhit;
 	UKismetSystemLibrary::LineTraceSingleForObjects(this, ActorLocation, FVector(ActorLocation.X, ActorLocation.Y, ActorLocationZ),
 	                                                ObjectTypes, false, {},
-	                                                EDrawDebugTrace::ForDuration, Outhit, false, FLinearColor::Red,
+	                                                EDrawDebugTrace::None, Outhit, false, FLinearColor::Red,
 	                                                FLinearColor::Green, 500.0f);
-	
 	SetActorLocation(Outhit.Location, false, nullptr, ETeleportType::None);
-
-	if (GetLocalRole() == ROLE_Authority)
-	{
-		SetReplicates(true);
-	}
 }
 
 void AItemPickupBase::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
 	Super::EndPlay(EndPlayReason);
+	/////////////////////////////////////////////////////////////////////////
+	// Unbind Delegate
 	FOnOverlepBox.Unbind();
+}
+
+void AItemPickupBase::InInventory(bool In)
+{
+	if (GetLocalRole() == ROLE_Authority)
+	{
+		ObjectPickup = In;
+		OnRep_Pickup();
+	}
+}
+
+void AItemPickupBase::OnRep_Pickup()
+{
+	StaticMesh->SetHiddenInGame(ObjectPickup);
+	SetActorEnableCollision(!ObjectPickup);
 }
 
 void AItemPickupBase::InitPickup(EItemType ItemTypeRef, FText NameRef, FText UIPrefixRef, UStaticMesh* StaticMeshRef)
@@ -72,7 +96,7 @@ void AItemPickupBase::InitPickup(EItemType ItemTypeRef, FText NameRef, FText UIP
 }
 
 void AItemPickupBase::OnBoxBeginOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor,
- 	UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
+                                        UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
 	if (GetLocalRole() == ROLE_Authority)
 	{
@@ -82,18 +106,10 @@ void AItemPickupBase::OnBoxBeginOverlap(UPrimitiveComponent* OverlappedComp, AAc
 			{
 				FOnOverlepBox.Execute(this, OtherActor);
 			}
-		
-			if(OtherActor)
-			{
-				if (APortfolioCharacter* Player = Cast<APortfolioCharacter>(OtherActor))
-				{
-					Player->InventoryComponent->AddPickupItems(this);
-				}
-			}
-			EnabledOutLine(true);
 		}
 	}
 }
+
 void AItemPickupBase::OnOverlapEnd(UPrimitiveComponent* OverlappedComp, AActor* OtherActor,
 	UPrimitiveComponent* OtherComp, int32 OtherBodyIndex)
 {
@@ -103,37 +119,37 @@ void AItemPickupBase::OnOverlapEnd(UPrimitiveComponent* OverlappedComp, AActor* 
 		{
 			FEndOverlapBox.Execute(this);
 		}
-		
-		if(OtherActor)
-		{
-			if (APortfolioCharacter* Player = Cast<APortfolioCharacter>(OtherActor))
-			{
-				Player->InventoryComponent->SubPickupItems(this);
-			}
-		}
-		EnabledOutLine(false);
 	}
 }
 
-void AItemPickupBase::EnabledOutLine(bool bEnabled)
+void AItemPickupBase::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLifetimeProps) const
 {
-	MulticastEnabledOutLine(bEnabled);
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+	
+	DOREPLIFETIME(AItemPickupBase, ObjectPickup);
 }
 
 
-void AItemPickupBase::MulticastEnabledOutLine_Implementation(bool bEnabled)
-{
-	if (bEnabled)
-	{
-		StaticMesh->SetRenderCustomDepth(true);
-	}
-	else
-	{
-		StaticMesh->SetRenderCustomDepth(false);
-	}
-}
-
-bool AItemPickupBase::MulticastEnabledOutLine_Validate(bool bEnabled)
-{
-	return true;
-}
+//
+// void AItemPickupBase::EnabledOutLine(bool bEnabled)
+// {
+// 	MulticastEnabledOutLine(bEnabled);
+// }
+//
+//
+// void AItemPickupBase::MulticastEnabledOutLine_Implementation(bool bEnabled)
+// {
+// 	if (bEnabled)
+// 	{
+// 		StaticMesh->SetRenderCustomDepth(true);
+// 	}
+// 	else
+// 	{
+// 		StaticMesh->SetRenderCustomDepth(false);
+// 	}
+// }
+//
+// bool AItemPickupBase::MulticastEnabledOutLine_Validate(bool bEnabled)
+// {
+// 	return true;
+// }

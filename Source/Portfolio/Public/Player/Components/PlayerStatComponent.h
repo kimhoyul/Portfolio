@@ -13,15 +13,37 @@ class PORTFOLIO_API UPlayerStatComponent : public UActorComponent
 
 public:	
 	UPlayerStatComponent();
-
+	
+	virtual void BeginPlay() override;
+	
+	/////////////////////////////////////////////////////////////////////////
+	// Set Player Stat
+	void HandleHungerAndThirst();
+	
 	void AddHunger(float Value);
-	void AddThirst(float Value);
-	void AddHealth(float Value);
 	void LowerHunger(float Value);
+	UFUNCTION(Server, Reliable, WithValidation)
+	void ServerLowerHunger(float Value);
+	UFUNCTION(Server, Reliable, WithValidation)
+	void ServerLowerHealth(float Value);
+	
+	void AddThirst(float Value);
 	void LowerThirst(float Value);
+	UFUNCTION(Server, Reliable, WithValidation)
+	void ServerLowerThirst(float Value);
+	UFUNCTION(Server, Reliable, WithValidation)
+	void ServerLowerStamina(float Value);
+	
+	void AddHealth(float Value);
 	void LowerHealth(float Value);
-	void LowerStamina(float Value);
+	
 	void RegenerateStamina();
+	void LowerStamina(float Value);
+	UFUNCTION(Server, Reliable, WithValidation)
+	void ServerControlRunning(bool IsRunning);
+		
+	/////////////////////////////////////////////////////////////////////////
+	// Get Player Stat 
 	float GetHungerRatio();
 	float GetThirstRatio();
 	float GetHealthRatio();
@@ -29,6 +51,9 @@ public:
 	void ControlRunningTimer(bool IsRunning);
 
 protected:
+	FTimerHandle TimerHandle;
+	FTimerHandle StaminaHandle;
+	
 	UPROPERTY(Replicated)
 	float Hunger;
 
@@ -46,29 +71,4 @@ protected:
 	
 	UPROPERTY(Replicated)
 	float Stamina;
-
-	FTimerHandle TimerHandle;
-	FTimerHandle StaminaHandle;
-	
-	virtual void BeginPlay() override;
-	
-	void HandleHungerAndThirst();
-
-	UFUNCTION(Server, Reliable, WithValidation)
-	void ServerLowerHunger(float Value);
-	
-	UFUNCTION(Server, Reliable, WithValidation)
-	void ServerLowerThirst(float Value);
-	
-	UFUNCTION(Server, Reliable, WithValidation)
-	void ServerLowerHealth(float Value);
-	
-	UFUNCTION(Server, Reliable, WithValidation)
-	void ServerLowerStamina(float Value);
-
-	UFUNCTION(Server, Reliable, WithValidation)
-	void ServerControlRunning(bool IsRunning);
-	
-public:
-	
 };

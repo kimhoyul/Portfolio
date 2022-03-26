@@ -8,6 +8,7 @@
 #include "PortfolioPlayerState.h"
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
+#include "Components/BoxComponent.h"
 #include "Components/InputComponent.h"
 #include "Components/PlayerMovementComponent.h"
 #include "Components/PortfolioTimeLineComponent.h"
@@ -230,6 +231,17 @@ void APortfolioCharacter::BeginPlay()
 
 	GetWorld()->GetTimerManager().SetTimer(RunningTimeHandle, this, &APortfolioCharacter::HandleRunning, 0.5f, true);
 	GetWorld()->GetTimerManager().SetTimer(LineTraceHandle, this, &APortfolioCharacter::ItemLineTrace, 0.1f, true);
+
+	//BeginActorRandomSpawn();
+}
+
+void APortfolioCharacter::BeginActorRandomSpawn()
+{
+	if (APortfolioGameMode* GM = Cast<APortfolioGameMode>(GetWorld()->GetAuthGameMode()))
+	{
+		FVector NewLocation = GM->GetSpawnPoint();
+		SetActorLocation(NewLocation);
+	}
 }
 
 void APortfolioCharacter::HandleRunning()
@@ -279,7 +291,6 @@ void APortfolioCharacter::SetupPlayerInputComponent(class UInputComponent* Playe
 	PlayerInputComponent->BindAction("Run", IE_Released, this, &APortfolioCharacter::OnStopRunning);
 	PlayerInputComponent->BindAction("Aiming", IE_Pressed, this, &APortfolioCharacter::OnStartAiming);
 	PlayerInputComponent->BindAction("Aiming", IE_Released, this, &APortfolioCharacter::OnStopAiming);
-	PlayerInputComponent->BindAction("Inventory", IE_Pressed, this, &APortfolioCharacter::OnToggleInInventory);
 	PlayerInputComponent->BindAction("Fire", IE_Pressed, this, &APortfolioCharacter::Fire);
 	PlayerInputComponent->BindAction("Interaction", IE_Pressed, this, &APortfolioCharacter::Interaction);
 }
@@ -314,37 +325,6 @@ void APortfolioCharacter::Interaction()
 			ServerInteraction();
 		}
 	}
-}
-
-void APortfolioCharacter::UIInteraction(AItemPickupBase* Item)
-{
-	if (GetLocalRole() < ROLE_Authority)
-	{
-		ServerUIInteraction(Item);
-	}
-	else
-	{
-		if (Item)
-		{
-			if (InventoryComponent->AddBackpackItem(Item))
-			{
-				if (GetLocalRole() == ROLE_Authority)
-				{
-					MultiInteraction(Item);
-				}
-			}
-			else
-			{
-				return;
-			}
-		}
-		
-	}
-}
-
-void APortfolioCharacter::OnToggleInInventory()
-{
-	GEngine->AddOnScreenDebugMessage(-1, 500.0f, FColor::Yellow,FString::Printf(TEXT("인입")));
 }
 
 void APortfolioCharacter::Fire()
@@ -386,6 +366,7 @@ void APortfolioCharacter::DIe()
 {
 	if (GetLocalRole() == ROLE_Authority)
 	{
+		InventoryComponent->DropAllInventory();
 		MulticastDIe();
 		AGameModeBase* GM = Cast<AGameModeBase>(GetWorld()->GetAuthGameMode());
 		if (APortfolioGameMode* PFGM = Cast<APortfolioGameMode>(GM))
@@ -393,7 +374,7 @@ void APortfolioCharacter::DIe()
 			APortfolioPlayerController* PFPC = Cast<APortfolioPlayerController>(GetController());
 			PFGM->Respawn(PFPC); 
 		}
-		GetWorld()->GetTimerManager().SetTimer(DestroyHandle, this, &APortfolioCharacter::CallDestroy, 5.0f, false);
+		GetWorld()->GetTimerManager().SetTimer(DestroyHandle, this, &APortfolioCharacter::CallDestroy, 10.0f, false);
 	}
 }
 
@@ -1168,47 +1149,25 @@ bool APortfolioCharacter::MulticastDIe_Validate()
 	return true;
 }
 
-inline void APortfolioCharacter::ServerInteraction_Implementation()
+void APortfolioCharacter::ServerInteraction_Implementation()
 {
 	FVector Start = FollowCamera->GetComponentLocation();
 	FVector End = Start +(FollowCamera->GetForwardVector() * 450.0f);
 	FHitResult HitResult = LineTraceComponent->LineTraceSingle(Start, End, true);
 	if (AActor* Actor = HitResult.GetActor())
 	{
-		if (APickupHealth* PickupItem = Cast<APickupHealth>(Actor))
+		if (AItemPickupBase* PickupItem = Cast<AItemPickupBase>(Actor))
 		{
-			PickupItem->UseItem(this, PickupItem->ID);
+			InventoryComponent->AddItems(PickupItem);
+		}
+		else
+		{
+			GEngine->AddOnScreenDebugMessage(-1, 500.0f, FColor::Yellow,FString::Printf(TEXT("PortfolioCharacter : ServerInteraction 에러")));
 		}
 	}
 }
 
-inline bool APortfolioCharacter::ServerInteraction_Validate()
-{
-	return true;
-}
-
-
-void APortfolioCharacter::MultiInteraction_Implementation(AItemPickupBase* Item)
-{
-	Item->Box->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	Item->StaticMesh->SetVisibility(false);
-	Item->StaticMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	PointItem = nullptr;
-	Item = nullptr;
-}
-
-bool APortfolioCharacter::MultiInteraction_Validate(AItemPickupBase* Item)
-{
-	return true;
-}
-
-
-inline void APortfolioCharacter::ServerUIInteraction_Implementation(AItemPickupBase* Item)
-{
-	UIInteraction(Item);
-}
-
-inline bool APortfolioCharacter::ServerUIInteraction_Validate(AItemPickupBase* Item)
+bool APortfolioCharacter::ServerInteraction_Validate()
 {
 	return true;
 }

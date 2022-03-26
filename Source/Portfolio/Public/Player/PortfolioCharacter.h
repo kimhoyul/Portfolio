@@ -4,7 +4,6 @@
 
 #include "CoreMinimal.h"
 #include "Datas/StructData.h"
-#include "Engine/DataTable.h"
 #include "GameFramework/Character.h"
 #include "UI/PortfolioCharacterWidget.h"
 #include "PortfolioCharacter.generated.h"
@@ -14,6 +13,11 @@ class UPortfolioGameInstance;
 class AEquipmentsWeapon;
 class AItemPickupBase;
 class AItemBase;
+class USpringArmComponent;
+class UCameraComponent;
+class UPortfolioTimeLineComponent;
+class ULineTraceComponent;
+class UInventoryComponent;
 
 UCLASS(config=Game)
 class APortfolioCharacter : public ACharacter
@@ -27,8 +31,79 @@ public:
 
 	virtual float TakeDamage(float Damage, struct FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser) override;
 	
+	/////////////////////////////////////////////////////////////////////////
+	// Components
+public:
+	UInventoryComponent* GetInventoryComponent() { return InventoryComponent; }
+
+	UPlayerStatComponent* GetPlayerStatComponentComponent() { return PlayerStatComponent; }
+	
+private:
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera", meta = (AllowPrivateAccess = "true"))
+	USpringArmComponent* CameraBoom;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera", meta = (AllowPrivateAccess = "true"))
+	UCameraComponent* FollowCamera;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "TimeLine", meta = (AllowPrivateAccess = "true"))
+	UPortfolioTimeLineComponent* TimeLine;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Stats", meta = (AllowPrivateAccess = "true"))
+	UPlayerStatComponent* PlayerStatComponent;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "LineTrace", meta = (AllowPrivateAccess = "true"))
+	ULineTraceComponent* LineTraceComponent;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Inventory", meta = (AllowPrivateAccess = "true"))
+	UInventoryComponent* InventoryComponent;
+
+private:
+	/////////////////////////////////////////////////////////////////////////
+	// Random spawn location at startup
+	void BeginActorRandomSpawn();
+
+public:
 	//////////////////////////////////////////////////////////////////////////
 	// SkeletalMesh
+	void InitSkeletalMesh();
+	
+	UFUNCTION(BlueprintCallable)
+	void ReplaceSkeletalMesh(EClothesType ClothesType, FName RowName);
+
+	//////////////////////////////////////////////////////////////////////////
+	// SkeletalMesh | Weapon mounting
+	UFUNCTION(BlueprintCallable)
+	void UpdateWeaponDisplay(FName HoldSocket);
+	
+	UFUNCTION()
+	void OnUpdateWeaponDisplay(AEquipmentsWeapon* Weapon, EWeaponPosition Position, bool IsOnHand);
+
+	//////////////////////////////////////////////////////////////////////////
+	// SkeletalMesh | Equip mounting
+	void UpdateEquipmentDisplay();
+
+	UFUNCTION()
+	void OnUpdateEquipmentDisplay(AItemBase* Equipment, bool IsAdd);
+	
+	void UpdateClothesDisplay();
+
+	UFUNCTION()
+	void OnUpdateClothesDisplay(AItemBase* Clothes, bool IsAdd);
+	
+	void Attach(AItemBase* Item, FName SocketName);
+
+	void ClearClothes();
+
+	UFUNCTION(BlueprintCallable, BlueprintPure)
+	void CalculateHoldGunSocket(FName& SocketName);
+
+	UFUNCTION()
+	void OnMontageEnd(UAnimMontage* Montage, bool Interrupted);
+
+	//////////////////////////////////////////////////////////////////////////
+	// SkeletalMesh | SkeletalMesh variables
+	FItemClothes* GetClothesData(FName RowName) const;
+	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SkeltalMesh")
 	USkeletalMeshComponent* SKMHair;
 
@@ -64,33 +139,11 @@ public:
 
 	UPROPERTY()
 	UTexture* Mask;
-	
-	UFUNCTION(BlueprintCallable)
-	void ReplaceSkeletalMesh(EClothesType ClothesType, FName RowName);
 
-	FItemClothes* GetClothesData(FName RowName) const;
-	
-	/** get aim offsets */
+	//////////////////////////////////////////////////////////////////////////
+	// CharacterPose
 	UFUNCTION(BlueprintCallable, Category = "Game|Weapon")
 	FRotator GetAimOffsets() const;
-	
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera", meta = (AllowPrivateAccess = "true"))
-	class USpringArmComponent* CameraBoom;
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera", meta = (AllowPrivateAccess = "true"))
-	class UCameraComponent* FollowCamera;
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "TimeLine", meta = (AllowPrivateAccess = "true"))
-	class UPortfolioTimeLineComponent* TimeLine;
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Stats", meta = (AllowPrivateAccess = "true"))
-	class UPlayerStatComponent* PlayerStatComponent;
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "LineTrace", meta = (AllowPrivateAccess = "true"))
-	class ULineTraceComponent* LineTraceComponent;
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "LineTrace", meta = (AllowPrivateAccess = "true"))
-	class UInventoryComponent* InventoryComponent;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "MouseSensitive")
 	float MouseSensitiveX;
@@ -167,12 +220,9 @@ public:
 	void MouseLookUp(float AxisValue);
 	void OnStartAiming();
 	void OnStopAiming();
-	void OnToggleInInventory();
+	
 	void Fire();
 	void Interaction();
-
-	UFUNCTION(BlueprintCallable)
-	void UIInteraction(AItemPickupBase* Item);
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "UI")
 	TSubclassOf<class UUserWidget> InventoryWidgetClass;
@@ -256,19 +306,14 @@ public:
 	
 protected:
 	
-	void InitSkeletalMesh();
 
 	//////////////////////////////////////////////////////////////////////////
 	// LineTrace
 	UFUNCTION(	)
 	void ItemLineTrace();
 
-	
-
 	UPROPERTY()
 	AItemPickupBase* PointItem;
-	
-	
 	//////////////////////////////////////////////////////////////////////////
 	// Stat
 	UFUNCTION(BlueprintPure)
@@ -282,38 +327,7 @@ protected:
 	
 	UFUNCTION(BlueprintPure)
 	float ReturnPlayerStamina();
-
 	
-	
-	//////////////////////////////////////////////////////////////////////////
-	// ChangeItems
-	UFUNCTION(BlueprintCallable)
-	void UpdateWeaponDisplay(FName HoldSocket);
-	
-	UFUNCTION()
-	void OnUpdateWeaponDisplay(AEquipmentsWeapon* Weapon, EWeaponPosition Position, bool IsOnHand);
-
-	void UpdateEquipmentDisplay();
-	
-	UFUNCTION()
-	void OnUpdateEquipmentDisplay(AItemBase* Equipment, bool IsAdd);
-	
-	void UpdateClothesDisplay();
-	
-	UFUNCTION()
-	void OnUpdateClothesDisplay(AItemBase* Clothes, bool IsAdd);
-	
-	void Attach(AItemBase* Item, FName SocketName);
-
-	void ClearClothes();
-
-	UFUNCTION(BlueprintCallable, BlueprintPure)
-	void CalculateHoldGunSocket(FName& SocketName);
-
-	UFUNCTION()
-	void OnMontageEnd(UAnimMontage* Montage, bool Interrupted);
-	
-
 	//////////////////////////////////////////////////////////////////////////
 	// Replication
 
@@ -351,12 +365,6 @@ protected:
 	UFUNCTION(Reliable, Server, WithValidation)
 	void ServerInteraction();
 
-	UFUNCTION(Reliable, NetMulticast, WithValidation)
-	void MultiInteraction(AItemPickupBase* Item);
-
-	UFUNCTION(Reliable, Server, WithValidation)
-	void ServerUIInteraction(AItemPickupBase* Item);
-
 	UFUNCTION(BlueprintCallable)
 	void EquipmentSpwan(FName ID, FString SN);
 	
@@ -379,7 +387,7 @@ public:
 
 private:
 	UPROPERTY()
-	class UUserWidget* InventoryWidget;
+	UUserWidget* InventoryWidget;
 
 };
 
